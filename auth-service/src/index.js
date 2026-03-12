@@ -66,6 +66,7 @@ app.post('/auth/register', validateRegister, async (req, res, next) => {
     // ── Insert profile row ──────────────────────────────────────────────────
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: userId,
+      email: email.trim().toLowerCase(),
       full_name: fullName.trim(),
       age: age ? Number(age) : null,
       age_group: age ? getAgeGroup(Number(age)) : null,
