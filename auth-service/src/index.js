@@ -83,7 +83,16 @@ app.post('/auth/login', validateLogin, async (req, res, next) => {
 // ─── POST /auth/logout ────────────────────────────────────────────────────────
 app.post('/auth/logout', async (req, res, next) => {
   try {
-    await supabase.auth.signOut();
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (token) {
+      // Invalidate the specific user session, not the service client
+      const userClient = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_KEY,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      );
+      await userClient.auth.signOut();
+    }
     return res.json({ success: true });
   } catch (err) { next(err); }
 });
@@ -116,7 +125,7 @@ app.get('/auth/profile/:userId', validateUserId, async (req, res, next) => {
 
 // ─── PUT /auth/profile/:userId ────────────────────────────────────────────────
 app.put('/auth/profile/:userId', validateUserId, validateProfileUpdate, async (req, res, next) => {
-  const { fullName, age, experienceLevel, preferredLanguage, pushNotificationsEnabled } = req.body;
+  const { fullName, age, experienceLevel, preferredLanguage, pushNotificationsEnabled, profileImageUrl } = req.body;
   try {
     const updates = { updated_at: new Date().toISOString() };
     if (fullName !== undefined) updates.full_name = fullName.trim();
@@ -124,6 +133,7 @@ app.put('/auth/profile/:userId', validateUserId, validateProfileUpdate, async (r
     if (experienceLevel !== undefined) updates.experience_level = experienceLevel;
     if (preferredLanguage !== undefined) updates.preferred_language = preferredLanguage;
     if (pushNotificationsEnabled !== undefined) updates.push_notifications_enabled = Boolean(pushNotificationsEnabled);
+    if (profileImageUrl !== undefined) updates.profile_image_url = profileImageUrl ?? null;
 
     const { error } = await supabase.from('profiles').update(updates).eq('id', req.params.userId);
     if (error) throw error;

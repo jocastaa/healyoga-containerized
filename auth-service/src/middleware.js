@@ -3,7 +3,7 @@
 // Provides: helmet setup, request logger, input validators, error handler
 
 const VALID_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
-const VALID_LANGUAGES = ['en', 'zh'];
+const VALID_LANGUAGES = ['en', 'zh-Hans', 'zh-Hant'];
 const VALID_EXPERIENCE = ['Beginner', 'Intermediate', 'Advanced'];
 
 // ─── Request logger ───────────────────────────────────────────────────────────
