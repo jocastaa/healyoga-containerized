@@ -81,6 +81,8 @@ const proxy = (target) => createProxyMiddleware({
   target,
   changeOrigin: true,
   secure: false,
+  proxyTimeout: 60000,  // ← 60s for Render free tier cold starts
+  timeout: 60000,       // ← 60s socket timeout
   on: {
     error: (err, req, res) => {
       console.error(`[Gateway] Proxy error → ${target}:`, err.message);
