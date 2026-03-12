@@ -1,203 +1,137 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const { createClient } = require('@supabase/supabase-js');
+const {
+  requestLogger, errorHandler, validateUserId,
+  validateRegister, validateLogin, validateProfileUpdate,
+} = require('./middleware');
 
 const app = express();
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(requestLogger);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
 
-// ─── Health check ─────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'auth-service', timestamp: new Date().toISOString() });
-});
+function getAgeGroup(age) {
+  if (age < 18)  return 'Under 18';
+  if (age < 25)  return '18-24';
+  if (age < 35)  return '25-34';
+  if (age < 45)  return '35-44';
+  if (age < 55)  return '45-54';
+  if (age < 65)  return '55-64';
+  if (age < 75)  return '65-74';
+  return '75+';
+}
+
+app.get('/health', (req, res) => res.json({
+  status: 'ok', service: 'auth-service', timestamp: new Date().toISOString(),
+}));
 
 // ─── POST /auth/register ──────────────────────────────────────────────────────
-// Body: { email, password, fullName, age }
-app.post('/auth/register', async (req, res) => {
+app.post('/auth/register', validateRegister, async (req, res, next) => {
   const { email, password, fullName, age } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'email and password are required.' });
-  }
-
   try {
-    // Create auth user via Supabase Admin API
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
+    const { data, error } = await supabase.auth.admin.createUser({
+      email: email.trim().toLowerCase(),
       password,
-      email_confirm: false,
-      user_metadata: { full_name: fullName },
+      email_confirm: true,
     });
+    if (error) {
+      if (error.message.includes('already')) return res.status(409).json({ error: 'Email already registered.' });
+      throw error;
+    }
 
-    if (authError) throw authError;
-
-    const userId = authData.user.id;
-
-    // Determine age group
-    const ageGroup = getAgeGroup(age);
-
-    // Upsert profile
-    const { error: profileError } = await supabase.from('profiles').upsert({
+    const userId = data.user.id;
+    await supabase.from('profiles').upsert({
       id: userId,
-      email,
-      full_name: fullName ?? '',
-      age: age ?? null,
-      age_group: ageGroup,
+      full_name: fullName.trim(),
+      age: age ? Number(age) : null,
+      age_group: age ? getAgeGroup(Number(age)) : null,
       experience_level: 'Beginner',
-      preferred_language: 'English',
-      push_notifications_enabled: true,
+      preferred_language: 'en',
+      push_notifications_enabled: false,
     });
 
-    if (profileError) throw profileError;
-
-    return res.status(201).json({
-      success: true,
-      userId,
-      email,
-      message: 'User registered. Please verify your email.',
-    });
-  } catch (err) {
-    console.error('POST /auth/register error:', err.message);
-    return res.status(500).json({ error: err.message });
-  }
+    return res.status(201).json({ success: true, userId, email: data.user.email });
+  } catch (err) { next(err); }
 });
 
 // ─── POST /auth/login ─────────────────────────────────────────────────────────
-// Body: { email, password }
-// Returns session tokens
-app.post('/auth/login', async (req, res) => {
+app.post('/auth/login', validateLogin, async (req, res, next) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'email and password are required.' });
-  }
-
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) throw error;
-
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(), password,
+    });
+    if (error) return res.status(401).json({ error: 'Invalid email or password.' });
     return res.json({
       success: true,
+      userId: data.user.id,
       accessToken: data.session.access_token,
       refreshToken: data.session.refresh_token,
       expiresAt: data.session.expires_at,
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-      },
     });
-  } catch (err) {
-    console.error('POST /auth/login error:', err.message);
-    return res.status(401).json({ error: 'Invalid credentials.' });
-  }
+  } catch (err) { next(err); }
 });
 
 // ─── POST /auth/logout ────────────────────────────────────────────────────────
-// Body: { accessToken }
-app.post('/auth/logout', async (req, res) => {
+app.post('/auth/logout', async (req, res, next) => {
   try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    return res.json({ success: true, message: 'Logged out.' });
-  } catch (err) {
-    console.error('POST /auth/logout error:', err.message);
-    return res.status(500).json({ error: err.message });
-  }
+    await supabase.auth.signOut();
+    return res.json({ success: true });
+  } catch (err) { next(err); }
 });
 
 // ─── POST /auth/reset-password ────────────────────────────────────────────────
-// Body: { email }
-// Sends a password reset email
-app.post('/auth/reset-password', async (req, res) => {
+app.post('/auth/reset-password', async (req, res, next) => {
   const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: 'email is required.' });
-  }
-
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+    return res.status(400).json({ error: 'A valid email is required.' });
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: process.env.RESET_PASSWORD_REDIRECT_URL ?? 'https://healyoga-web.web.app/reset-password',
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: process.env.RESET_PASSWORD_REDIRECT_URL,
     });
-
     if (error) throw error;
-
-    return res.json({ success: true, message: 'Password reset email sent.' });
-  } catch (err) {
-    console.error('POST /auth/reset-password error:', err.message);
-    return res.status(500).json({ error: err.message });
-  }
+    // Always return success to avoid email enumeration
+    return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+  } catch (err) { next(err); }
 });
 
 // ─── GET /auth/profile/:userId ────────────────────────────────────────────────
-// Returns profile data for a user
-app.get('/auth/profile/:userId', async (req, res) => {
-  const { userId } = req.params;
-
+app.get('/auth/profile/:userId', validateUserId, async (req, res, next) => {
   try {
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
+      .from('profiles').select('*').eq('id', req.params.userId).maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Profile not found.' });
-
     return res.json(data);
-  } catch (err) {
-    console.error('GET /auth/profile error:', err.message);
-    return res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 });
 
 // ─── PUT /auth/profile/:userId ────────────────────────────────────────────────
-// Body: { fullName, age, experienceLevel, preferredLanguage, pushNotificationsEnabled }
-app.put('/auth/profile/:userId', async (req, res) => {
-  const { userId } = req.params;
+app.put('/auth/profile/:userId', validateUserId, validateProfileUpdate, async (req, res, next) => {
   const { fullName, age, experienceLevel, preferredLanguage, pushNotificationsEnabled } = req.body;
-
   try {
-    const updates = {
-      id: userId,
-      ...(fullName !== undefined && { full_name: fullName }),
-      ...(age !== undefined && { age, age_group: getAgeGroup(age) }),
-      ...(experienceLevel !== undefined && { experience_level: experienceLevel }),
-      ...(preferredLanguage !== undefined && { preferred_language: preferredLanguage }),
-      ...(pushNotificationsEnabled !== undefined && { push_notifications_enabled: pushNotificationsEnabled }),
-    };
+    const updates = { updated_at: new Date().toISOString() };
+    if (fullName !== undefined) updates.full_name = fullName.trim();
+    if (age !== undefined) { updates.age = Number(age); updates.age_group = getAgeGroup(Number(age)); }
+    if (experienceLevel !== undefined) updates.experience_level = experienceLevel;
+    if (preferredLanguage !== undefined) updates.preferred_language = preferredLanguage;
+    if (pushNotificationsEnabled !== undefined) updates.push_notifications_enabled = Boolean(pushNotificationsEnabled);
 
-    const { error } = await supabase.from('profiles').upsert(updates);
+    const { error } = await supabase.from('profiles').update(updates).eq('id', req.params.userId);
     if (error) throw error;
-
-    return res.json({ success: true, userId, updates });
-  } catch (err) {
-    console.error('PUT /auth/profile error:', err.message);
-    return res.status(500).json({ error: err.message });
-  }
+    return res.json({ success: true, userId: req.params.userId, updated: updates });
+  } catch (err) { next(err); }
 });
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-function getAgeGroup(age) {
-  if (!age) return 'Unknown';
-  if (age < 18)       return 'Under 18';
-  if (age <= 24)      return '18-24 years';
-  if (age <= 34)      return '25-34 years';
-  if (age <= 44)      return '35-44 years';
-  if (age <= 54)      return '45-54 years';
-  if (age <= 64)      return '55-64 years';
-  if (age <= 74)      return '65-74 years';
-  return '75+ years';
-}
+app.use(errorHandler);
 
-// ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`✅ auth-service running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`auth-service running on port ${PORT}`));
