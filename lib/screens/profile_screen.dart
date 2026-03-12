@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'edit_profile_screen.dart';
 import 'auth_gate.dart';
 import '../services/global_audio_service.dart';
+import '../services/api_service.dart';
 import '../l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -14,9 +15,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // Keep supabase ONLY for stats tables (session_completions, pose_activity)
   final supabase = Supabase.instance.client;
 
-  // 🎨 App colors - ORIGINAL
   static const background = Color(0xFFEAF6F4);
   static const turquoise = Color(0xFF40E0D0);
   static const textDark = Color(0xFF1F3D3A);
@@ -38,82 +39,97 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadStats();
   }
 
+  // ── Load profile via ApiService (auth-service) ────────────────────────────
   Future<void> _loadProfile() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (!ApiService().isLoggedIn) {
+      setState(() => _isLoading = false);
+      return;
+    }
 
-    final data = await supabase
-        .from('profiles')
-        .select()
-        .eq('id', user.id)
-        .maybeSingle();
-
-    if (!mounted) return;
-
-    setState(() {
-      _profile = data;
-      _isLoading = false;
-    });
+    try {
+      final data = await ApiService().getProfile(ApiService().userId!);
+      if (!mounted) return;
+      setState(() {
+        _profile = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('❌ Failed to load profile: $e');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
   }
 
+  // ── Stats still read from Supabase directly (no stats microservice yet) ───
   Future<void> _loadStats() async {
-    final userId = supabase.auth.currentUser?.id;
+    final userId = ApiService().userId;
     if (userId == null) return;
 
-    final completedSessions = await supabase
-        .from('session_completions')
-        .select('id')
-        .eq('user_id', userId);
+    try {
+      final completedSessions = await supabase
+          .from('session_completions')
+          .select('id')
+          .eq('user_id', userId);
 
-    int sessionCount = completedSessions.length;
+      int sessionCount = completedSessions.length;
 
-    final activities = await supabase
-        .from('pose_activity')
-        .select('duration_seconds, completed_at')
-        .eq('user_id', userId)
-        .order('completed_at', ascending: false);
+      final activities = await supabase
+          .from('pose_activity')
+          .select('duration_seconds, completed_at')
+          .eq('user_id', userId)
+          .order('completed_at', ascending: false);
 
-    int totalSeconds = 0;
-    final Map<String, bool> activityDays = {};
+      int totalSeconds = 0;
+      final Map<String, bool> activityDays = {};
 
-    for (final row in activities) {
-      totalSeconds += (row['duration_seconds'] ?? 0) as int;
-
-      final raw = DateTime.parse(row['completed_at']).toLocal();
-      final date = DateTime(raw.year, raw.month, raw.day);
-      final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      activityDays[key] = true;
-    }
-
-    final totalMinutes = (totalSeconds / 60).ceil();
-
-    int streak = 0;
-    DateTime checkDate = DateTime.now();
-
-    while (true) {
-      final date = DateTime(checkDate.year, checkDate.month, checkDate.day);
-      final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      if (activityDays[key] == true) {
-        streak++;
-        checkDate = checkDate.subtract(const Duration(days: 1));
-      } else {
-        break;
+      for (final row in activities) {
+        totalSeconds += (row['duration_seconds'] ?? 0) as int;
+        final raw = DateTime.parse(row['completed_at']).toLocal();
+        final date = DateTime(raw.year, raw.month, raw.day);
+        final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        activityDays[key] = true;
       }
+
+      final totalMinutes = (totalSeconds / 60).ceil();
+
+      int streak = 0;
+      DateTime checkDate = DateTime.now();
+      while (true) {
+        final date = DateTime(checkDate.year, checkDate.month, checkDate.day);
+        final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        if (activityDays[key] == true) {
+          streak++;
+          checkDate = checkDate.subtract(const Duration(days: 1));
+        } else {
+          break;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _totalSessions = sessionCount;
+        _totalMinutes = totalMinutes;
+        _dailyStreak = streak;
+        _weeklyStreak = 0;
+      });
+    } catch (e) {
+      debugPrint('❌ Failed to load stats: $e');
     }
+  }
 
+  // ── Logout via ApiService then navigate to AuthGate ───────────────────────
+  Future<void> _logout() async {
+    await GlobalAudioService.playClickSound();
+    await ApiService().logout();
     if (!mounted) return;
-
-    setState(() {
-      _totalSessions = sessionCount;
-      _totalMinutes = totalMinutes;
-      _dailyStreak = streak;
-      _weeklyStreak = 0;
-    });
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthGate()),
+          (route) => false,
+    );
   }
 
   String _getLocalizedDbValue(String? value) {
     if (value == null || value.isEmpty) return '-';
-
     final l10n = AppLocalizations.of(context)!;
     final v = value.trim();
 
@@ -121,9 +137,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (v == 'Intermediate') return l10n.intermediate;
     if (v == 'Advanced') return l10n.advanced;
 
-    if (v == ('English')) return l10n.english;
-    if (v == ('Mandarin (Simplified)')) return l10n.mandarinSimplified;
-    if (v == ('Mandarin (Traditional)')) return l10n.mandarinTraditional;
+    // Language — DB stores codes like 'en', 'zh-Hans', 'zh-Hant'
+    if (v == 'en' || v == 'English') return l10n.english;
+    if (v == 'zh-Hans' || v == 'Mandarin (Simplified)') return l10n.mandarinSimplified;
+    if (v == 'zh-Hant' || v == 'Mandarin (Traditional)') return l10n.mandarinTraditional;
 
     if (v.contains('5')) return l10n.min5;
     if (v.contains('10')) return l10n.min10;
@@ -144,7 +161,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final name = _profile?['full_name'] ?? 'User';
-    final email = _profile?['email'] ?? '';
+    // Email lives in auth.users, not profiles — read from ApiService cache
+    final email = _profile?['email'] ?? ApiService().userEmail ?? '';
     final imageUrl = _profile?['profile_image_url'];
 
     return Scaffold(
@@ -163,21 +181,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         child: SafeArea(
-          child: isWeb ? _buildWebLayout(name, email, imageUrl) : _buildMobileLayout(name, email, imageUrl),
+          child: isWeb
+              ? _buildWebLayout(name, email, imageUrl)
+              : _buildMobileLayout(name, email, imageUrl),
         ),
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Web Layout
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── Web Layout ───────────────────────────────────────────────────────────
 
   Widget _buildWebLayout(String name, String email, String? imageUrl) {
     return SingleChildScrollView(
       child: Column(
         children: [
-          // Top bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             child: Row(
@@ -185,19 +202,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   AppLocalizations.of(context)!.profileTitle,
-                  style: GoogleFonts.poppins(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
                 OutlinedButton(
                   onPressed: () async {
                     await GlobalAudioService.playClickSound();
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const EditProfileScreen()),
-                    );
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
                     _loadProfile();
                     _loadStats();
                   },
@@ -205,22 +215,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     foregroundColor: turquoise,
                     side: const BorderSide(color: turquoise, width: 2),
                     padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: Text(
-                    AppLocalizations.of(context)!.edit,
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: Text(AppLocalizations.of(context)!.edit,
+                      style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
           ),
-
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1400),
@@ -228,65 +230,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                 child: Column(
                   children: [
-                    // Row 1: Profile Card (Left) | Stats Grid (Right)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Profile Card - Fixed Width
-                        SizedBox(
-                          width: 300,
-                          child: _buildProfileCard(name, email, imageUrl),
-                        ),
-
+                        SizedBox(width: 300, child: _buildProfileCard(name, email, imageUrl)),
                         const SizedBox(width: 24),
-
-                        // Right Column: Stats + Sections
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Stats Grid - 3 columns
                               Row(
                                 children: [
-                                  _statCard(
-                                    AppLocalizations.of(context)!.sessions,
-                                    _totalSessions.toString(),
-                                  ),
+                                  _statCard(AppLocalizations.of(context)!.sessions, _totalSessions.toString()),
                                   const SizedBox(width: 20),
-                                  _statCard(
-                                    AppLocalizations.of(context)!.minutesLabel,
-                                    _totalMinutes.toString(),
-                                  ),
+                                  _statCard(AppLocalizations.of(context)!.minutesLabel, _totalMinutes.toString()),
                                   const SizedBox(width: 20),
-                                  _statCard(
-                                    AppLocalizations.of(context)!.daily,
-                                    _dailyStreak.toString(),
-                                    highlight: true,
-                                  ),
+                                  _statCard(AppLocalizations.of(context)!.daily, _dailyStreak.toString(), highlight: true),
                                 ],
                               ),
-
                               const SizedBox(height: 24),
-
-                              // Streak Summary
                               _section(
                                 title: AppLocalizations.of(context)!.streakSummary,
-                                children: [
-                                  _infoRow(
-                                    AppLocalizations.of(context)!.weeklyActive,
-                                    _weeklyStreak.toString(),
-                                  ),
-                                ],
+                                children: [_infoRow(AppLocalizations.of(context)!.weeklyActive, _weeklyStreak.toString())],
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Row 2: Preferences | Notifications (2-column grid with equal heights)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -294,94 +266,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: _section(
                             title: AppLocalizations.of(context)!.preferences,
                             children: [
-                              _infoRow(
-                                AppLocalizations.of(context)!.experienceLevel,
-                                _getLocalizedDbValue(_profile?['experience_level']),
-                              ),
-                              _infoRow(
-                                AppLocalizations.of(context)!.sessionLength,
-                                _getLocalizedDbValue(_profile?['preferred_session_length']),
-                              ),
-                              _infoRow(
-                                AppLocalizations.of(context)!.language,
-                                _getLocalizedDbValue(_profile?['preferred_language']),
-                              ),
+                              _infoRow(AppLocalizations.of(context)!.experienceLevel,
+                                  _getLocalizedDbValue(_profile?['experience_level'])),
+                              _infoRow(AppLocalizations.of(context)!.sessionLength,
+                                  _getLocalizedDbValue(_profile?['preferred_session_length'])),
+                              _infoRow(AppLocalizations.of(context)!.language,
+                                  _getLocalizedDbValue(_profile?['preferred_language'])),
                             ],
                           ),
                         ),
-
                         const SizedBox(width: 24),
-
                         Expanded(
                           child: _section(
                             title: AppLocalizations.of(context)!.notifications,
                             children: [
-                              _infoRow(
-                                AppLocalizations.of(context)!.pushNotifications,
-                                _profile?['push_notifications_enabled'] == true
-                                    ? AppLocalizations.of(context)!.enabled
-                                    : AppLocalizations.of(context)!.disabled,
-                              ),
-                              _infoRow(
-                                AppLocalizations.of(context)!.dailyReminder,
-                                _profile?['daily_practice_reminder'] == true
-                                    ? AppLocalizations.of(context)!.enabled
-                                    : AppLocalizations.of(context)!.disabled,
-                              ),
+                              _infoRow(AppLocalizations.of(context)!.pushNotifications,
+                                  _profile?['push_notifications_enabled'] == true
+                                      ? AppLocalizations.of(context)!.enabled
+                                      : AppLocalizations.of(context)!.disabled),
+                              _infoRow(AppLocalizations.of(context)!.dailyReminder,
+                                  _profile?['daily_practice_reminder'] == true
+                                      ? AppLocalizations.of(context)!.enabled
+                                      : AppLocalizations.of(context)!.disabled),
                               if (_profile?['daily_practice_reminder'] == true)
-                                _infoRow(
-                                  AppLocalizations.of(context)!.reminderTime,
-                                  _profile?['reminder_time']?.toString() ?? '-',
-                                ),
-                              _infoRow(
-                                AppLocalizations.of(context)!.soundEffects,
-                                _profile?['sound_effects_enabled'] == true
-                                    ? AppLocalizations.of(context)!.enabled
-                                    : AppLocalizations.of(context)!.disabled,
-                              ),
+                                _infoRow(AppLocalizations.of(context)!.reminderTime,
+                                    _profile?['reminder_time']?.toString() ?? '-'),
+                              _infoRow(AppLocalizations.of(context)!.soundEffects,
+                                  _profile?['sound_effects_enabled'] == true
+                                      ? AppLocalizations.of(context)!.enabled
+                                      : AppLocalizations.of(context)!.disabled),
                             ],
                           ),
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Buttons Row - Equal width
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () async {
-                              await GlobalAudioService.playClickSound();
-                              await supabase.auth.signOut(scope: SignOutScope.global);
-                              if (!mounted) return;
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(builder: (_) => const AuthGate()),
-                                    (route) => false,
-                              );
-                            },
+                            onPressed: _logout,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red[400],
                               padding: const EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               elevation: 0,
                             ),
-                            child: Text(
-                              AppLocalizations.of(context)!.signout,
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 18,
-                              ),
-                            ),
+                            child: Text(AppLocalizations.of(context)!.signout,
+                                style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
                           ),
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 60),
                   ],
                 ),
@@ -393,9 +329,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Mobile Layout
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── Mobile Layout ────────────────────────────────────────────────────────
 
   Widget _buildMobileLayout(String name, String email, String? imageUrl) {
     return Column(
@@ -405,21 +339,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                AppLocalizations.of(context)!.profileTitle,
-                style: GoogleFonts.poppins(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
+              Text(AppLocalizations.of(context)!.profileTitle,
+                  style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87)),
               OutlinedButton(
                 onPressed: () async {
                   await GlobalAudioService.playClickSound();
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const EditProfileScreen()),
-                  );
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
                   _loadProfile();
                   _loadStats();
                 },
@@ -427,147 +352,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   foregroundColor: turquoise,
                   side: const BorderSide(color: turquoise, width: 2),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                child: Text(
-                  AppLocalizations.of(context)!.edit,
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: Text(AppLocalizations.of(context)!.edit,
+                    style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
         ),
-
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
                 _buildProfileCard(name, email, imageUrl),
-
                 const SizedBox(height: 20),
-
                 Row(
                   children: [
-                    _statCard(
-                      AppLocalizations.of(context)!.sessions,
-                      _totalSessions.toString(),
-                    ),
+                    _statCard(AppLocalizations.of(context)!.sessions, _totalSessions.toString()),
                     const SizedBox(width: 12),
-                    _statCard(
-                      AppLocalizations.of(context)!.minutesLabel,
-                      _totalMinutes.toString(),
-                    ),
+                    _statCard(AppLocalizations.of(context)!.minutesLabel, _totalMinutes.toString()),
                     const SizedBox(width: 12),
-                    _statCard(
-                      AppLocalizations.of(context)!.daily,
-                      _dailyStreak.toString(),
-                      highlight: true,
-                    ),
+                    _statCard(AppLocalizations.of(context)!.daily, _dailyStreak.toString(), highlight: true),
                   ],
                 ),
-
                 const SizedBox(height: 16),
-
                 _section(
                   title: AppLocalizations.of(context)!.streakSummary,
-                  children: [
-                    _infoRow(
-                      AppLocalizations.of(context)!.weeklyActive,
-                      _weeklyStreak.toString(),
-                    ),
-                  ],
+                  children: [_infoRow(AppLocalizations.of(context)!.weeklyActive, _weeklyStreak.toString())],
                 ),
-
                 const SizedBox(height: 16),
-
                 _section(
                   title: AppLocalizations.of(context)!.preferences,
                   children: [
-                    _infoRow(
-                      AppLocalizations.of(context)!.experienceLevel,
-                      _getLocalizedDbValue(_profile?['experience_level']),
-                    ),
-                    _infoRow(
-                      AppLocalizations.of(context)!.sessionLength,
-                      _getLocalizedDbValue(_profile?['preferred_session_length']),
-                    ),
-                    _infoRow(
-                      AppLocalizations.of(context)!.language,
-                      _getLocalizedDbValue(_profile?['preferred_language']),
-                    ),
+                    _infoRow(AppLocalizations.of(context)!.experienceLevel,
+                        _getLocalizedDbValue(_profile?['experience_level'])),
+                    _infoRow(AppLocalizations.of(context)!.sessionLength,
+                        _getLocalizedDbValue(_profile?['preferred_session_length'])),
+                    _infoRow(AppLocalizations.of(context)!.language,
+                        _getLocalizedDbValue(_profile?['preferred_language'])),
                   ],
                 ),
-
                 const SizedBox(height: 16),
-
                 _section(
                   title: AppLocalizations.of(context)!.notifications,
                   children: [
-                    _infoRow(
-                      AppLocalizations.of(context)!.pushNotifications,
-                      _profile?['push_notifications_enabled'] == true
-                          ? AppLocalizations.of(context)!.enabled
-                          : AppLocalizations.of(context)!.disabled,
-                    ),
-                    _infoRow(
-                      AppLocalizations.of(context)!.dailyReminder,
-                      _profile?['daily_practice_reminder'] == true
-                          ? AppLocalizations.of(context)!.enabled
-                          : AppLocalizations.of(context)!.disabled,
-                    ),
+                    _infoRow(AppLocalizations.of(context)!.pushNotifications,
+                        _profile?['push_notifications_enabled'] == true
+                            ? AppLocalizations.of(context)!.enabled
+                            : AppLocalizations.of(context)!.disabled),
+                    _infoRow(AppLocalizations.of(context)!.dailyReminder,
+                        _profile?['daily_practice_reminder'] == true
+                            ? AppLocalizations.of(context)!.enabled
+                            : AppLocalizations.of(context)!.disabled),
                     if (_profile?['daily_practice_reminder'] == true)
-                      _infoRow(
-                        AppLocalizations.of(context)!.reminderTime,
-                        _profile?['reminder_time']?.toString() ?? '-',
-                      ),
-                    _infoRow(
-                      AppLocalizations.of(context)!.soundEffects,
-                      _profile?['sound_effects_enabled'] == true
-                          ? AppLocalizations.of(context)!.enabled
-                          : AppLocalizations.of(context)!.disabled,
-                    ),
+                      _infoRow(AppLocalizations.of(context)!.reminderTime,
+                          _profile?['reminder_time']?.toString() ?? '-'),
+                    _infoRow(AppLocalizations.of(context)!.soundEffects,
+                        _profile?['sound_effects_enabled'] == true
+                            ? AppLocalizations.of(context)!.enabled
+                            : AppLocalizations.of(context)!.disabled),
                   ],
                 ),
-
                 const SizedBox(height: 12),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      await GlobalAudioService.playClickSound();
-                      await supabase.auth.signOut(scope: SignOutScope.global);
-                      if (!mounted) return;
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const AuthGate()),
-                            (route) => false,
-                      );
-                    },
+                    onPressed: _logout,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red[400],
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                     ),
-                    child: Text(
-                      AppLocalizations.of(context)!.signout,
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
+                    child: Text(AppLocalizations.of(context)!.signout,
+                        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
                   ),
                 ),
-
                 const SizedBox(height: 40),
               ],
             ),
@@ -577,9 +438,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Shared Components
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── Shared Components ────────────────────────────────────────────────────
 
   Widget _buildProfileCard(String name, String email, String? imageUrl) {
     return Container(
@@ -587,89 +446,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  turquoise.withOpacity(0.6),
-                  turquoise.withOpacity(0.2),
-                ],
-              ),
+              gradient: LinearGradient(colors: [turquoise.withOpacity(0.6), turquoise.withOpacity(0.2)]),
             ),
             padding: const EdgeInsets.all(4),
             child: CircleAvatar(
               radius: 60,
               backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-              child: imageUrl == null
-                  ? const Icon(Icons.person, size: 48, color: turquoise)
-                  : null,
+              child: imageUrl == null ? const Icon(Icons.person, size: 48, color: turquoise) : null,
             ),
           ),
           const SizedBox(height: 20),
-          Text(
-            name,
-            style: GoogleFonts.poppins(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: textDark,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            email,
-            style: GoogleFonts.poppins(
-              color: textMuted,
-              fontSize: 16,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          Text(name,
+              style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.bold, color: textDark),
+              textAlign: TextAlign.center),
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(email,
+                style: GoogleFonts.poppins(color: textMuted, fontSize: 16),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+          ],
         ],
       ),
     );
   }
 
-  Widget _section({
-    required String title,
-    required List<Widget> children,
-  }) {
+  Widget _section({required String title, required List<Widget> children}) {
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
+          Text(title, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
           const SizedBox(height: 20),
           ...children,
         ],
@@ -677,59 +498,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _statCard(
-      String label,
-      String value, {
-        bool highlight = false,
-      }) {
+  Widget _statCard(String label, String value, {bool highlight = false}) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: highlight
-              ? Border.all(
-            color: const Color(0xFFFFA500).withOpacity(0.3),
-            width: 2,
-          )
-              : null,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
+          border: highlight ? Border.all(color: const Color(0xFFFFA500).withOpacity(0.3), width: 2) : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                style: GoogleFonts.poppins(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                  height: 1.0,
-                ),
-                maxLines: 1,
-              ),
+              child: Text(value,
+                  style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87, height: 1.0),
+                  maxLines: 1),
             ),
             const SizedBox(height: 6),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: Colors.grey[600],
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
+            Text(label,
+                style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
@@ -742,22 +535,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 17,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              color: textMuted,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(label, style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w500, color: Colors.black87)),
+          Text(value, style: GoogleFonts.poppins(color: textMuted, fontSize: 17, fontWeight: FontWeight.w600)),
         ],
       ),
     );

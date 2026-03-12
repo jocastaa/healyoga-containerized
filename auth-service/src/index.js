@@ -40,7 +40,16 @@ app.get('/health', (req, res) => res.json({
 
 // ─── POST /auth/register ──────────────────────────────────────────────────────
 app.post('/auth/register', validateRegister, async (req, res, next) => {
-  const { email, password, fullName, age } = req.body;
+  const {
+    email,
+    password,
+    fullName,
+    age,
+    experienceLevel,
+    preferredLanguage,
+    preferredSessionLength,
+    pushNotificationsEnabled,
+  } = req.body;
   try {
     const { data, error } = await supabase.auth.admin.createUser({
       email: email.trim().toLowerCase(),
@@ -60,9 +69,10 @@ app.post('/auth/register', validateRegister, async (req, res, next) => {
       full_name: fullName.trim(),
       age: age ? Number(age) : null,
       age_group: age ? getAgeGroup(Number(age)) : null,
-      experience_level: 'Beginner',
-      preferred_language: 'en',
-      push_notifications_enabled: false,
+      experience_level: experienceLevel ?? 'Beginner',
+      preferred_language: preferredLanguage ?? 'en',
+      preferred_session_length: preferredSessionLength ?? '15 minutes',
+      push_notifications_enabled: pushNotificationsEnabled ?? true,
     });
 
     if (profileError) {

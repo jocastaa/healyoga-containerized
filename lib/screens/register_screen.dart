@@ -19,7 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
-
+  String _selectedExperienceLevel = 'Beginner';
   String _preferredSessionLength = '15 minutes';
   String _preferredLanguage = 'English';
   bool _pushNotifications = true;
@@ -88,24 +88,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
     try {
       // ── Call auth-service via API Gateway ──────────────────────────────
+      final langCode = _preferredLanguage == 'English' ? 'en'
+          : _preferredLanguage == 'Mandarin (Simplified)' ? 'zh-Hans'
+          : 'zh-Hant';
+
       await ApiService().register(
         email: email,
         password: password,
         fullName: _nameController.text.trim(),
         age: age,
+        experienceLevel: _selectedExperienceLevel,
+        preferredLanguage: langCode,
+        preferredSessionLength: _preferredSessionLength,
+        pushNotificationsEnabled: _pushNotifications,
       );
 
       // Auto-login after successful registration
       await ApiService().login(email: email, password: password);
-
-      // Update profile with preferences captured during registration
-      final userId = ApiService().userId!;
-      await ApiService().updateProfile(userId, {
-        'preferredLanguage': _preferredLanguage == 'English' ? 'en'
-            : _preferredLanguage == 'Mandarin (Simplified)' ? 'zh-Hans'
-            : 'zh-Hant',
-        'pushNotificationsEnabled': _pushNotifications,
-      });
 
       // Sync locale
       if (_preferredLanguage == 'Mandarin (Simplified)') {
@@ -126,7 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
+              (route) => false,
         );
       }
     } on ApiException catch (e) {
@@ -265,9 +264,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: _isLoading
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : Text(
-                              _currentStep < 2 ? AppLocalizations.of(context)!.continueButton : AppLocalizations.of(context)!.createAccount,
-                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                        _currentStep < 2 ? AppLocalizations.of(context)!.continueButton : AppLocalizations.of(context)!.createAccount,
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ]),
@@ -417,7 +416,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildIconField({required IconData icon, required String label, required TextEditingController controller,
-      String? hint, bool obscureText = false, TextInputType keyboardType = TextInputType.text}) {
+    String? hint, bool obscureText = false, TextInputType keyboardType = TextInputType.text}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Icon(icon, size: 20, color: const Color(0xFF40E0D0)),
@@ -439,7 +438,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildDropdownCard({required IconData icon, required String label, required String value,
-      required List<String> items, required ValueChanged<String?>? onChanged}) {
+    required List<String> items, required ValueChanged<String?>? onChanged}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade400, width: 1.5)),

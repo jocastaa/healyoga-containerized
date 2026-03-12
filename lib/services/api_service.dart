@@ -17,9 +17,11 @@ class ApiService {
   // In-memory session store (persists for app lifetime)
   String? _accessToken;
   String? _userId;
+  String? _userEmail;
 
   String? get accessToken => _accessToken;
   String? get userId => _userId;
+  String? get userEmail => _userEmail;
   bool get isLoggedIn => _accessToken != null && _userId != null;
 
   // ─── Internal HTTP helpers ────────────────────────────────────────────────
@@ -86,12 +88,21 @@ class ApiService {
     required String password,
     required String fullName,
     int? age,
+    String? experienceLevel,
+    String? preferredLanguage,
+    String? preferredSessionLength,
+    bool? pushNotificationsEnabled,
   }) async {
     final data = await _post('/auth/register', {
       'email': email,
       'password': password,
       'fullName': fullName,
       if (age != null) 'age': age,
+      if (experienceLevel != null) 'experienceLevel': experienceLevel,
+      if (preferredLanguage != null) 'preferredLanguage': preferredLanguage,
+      if (preferredSessionLength != null) 'preferredSessionLength': preferredSessionLength,
+      if (pushNotificationsEnabled != null)
+        'pushNotificationsEnabled': pushNotificationsEnabled,
     });
     return data;
   }
@@ -107,6 +118,7 @@ class ApiService {
     });
     _accessToken = data['accessToken'] as String? ?? data['access_token'] as String?;
     _userId = data['userId'] as String? ?? data['user_id'] as String?;
+    _userEmail = data['email'] as String?;
 
     if (_accessToken == null || _userId == null) {
       throw ApiException('Login response missing accessToken or userId');
@@ -123,6 +135,7 @@ class ApiService {
     } finally {
       _accessToken = null;
       _userId = null;
+      _userEmail = null;
     }
   }
 

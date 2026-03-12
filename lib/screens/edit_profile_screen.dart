@@ -133,14 +133,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // ── Avatar upload — still uses Supabase Storage directly ─────────────────
   Future<void> _pickAndUploadImage() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
+    final userId = ApiService().userId;
+    if (userId == null) return;
 
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
     if (pickedFile == null) return;
 
-    final filePath = '${user.id}/profile.jpg';
+    final filePath = '$userId/profile.jpg';
     try {
       if (_isWebPlatform) {
         final bytes = await pickedFile.readAsBytes();
@@ -164,11 +164,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _removeProfileImage() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
+    final userId = ApiService().userId;
+    if (userId == null) return;
 
     try {
-      await supabase.storage.from('avatars').remove(['${user.id}/profile.jpg']);
+      await supabase.storage.from('avatars').remove(['/profile.jpg']);
       await ApiService().updateProfile(ApiService().userId!, {'profileImageUrl': null});
       setState(() => _profileImageUrl = null);
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile image removed')));
@@ -310,7 +310,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     _textField(AppLocalizations.of(context)!.age, _ageController, keyboardType: TextInputType.number),
                     _dropdown(AppLocalizations.of(context)!.sessionLength, _sessionLength,
                         ['5 minutes', '10 minutes', '15 minutes', '20 minutes', '30 minutes'],
-                        (v) => setState(() => _sessionLength = v),
+                            (v) => setState(() => _sessionLength = v),
                         itemLabelBuilder: (value) {
                           if (value == '5 minutes') return AppLocalizations.of(context)!.min5;
                           if (value == '10 minutes') return AppLocalizations.of(context)!.min10;
@@ -321,7 +321,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         }),
                     _dropdown(AppLocalizations.of(context)!.language, _language,
                         ['English', 'Mandarin (Simplified)', 'Mandarin (Traditional)'],
-                        (v) {
+                            (v) {
                           setState(() => _language = v);
                           if (v == 'Mandarin (Simplified)') {
                             appLocale.value = const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans');

@@ -45,7 +45,17 @@ function validateUserId(req, res, next) {
 
 // ─── Auth validators ──────────────────────────────────────────────────────────
 function validateRegister(req, res, next) {
-  const { email, password, fullName, age } = req.body;
+  const {
+    email,
+    password,
+    fullName,
+    age,
+    experienceLevel,
+    preferredLanguage,
+    preferredSessionLength,
+    pushNotificationsEnabled,
+  } = req.body;
+
   const errors = [];
 
   if (!email || typeof email !== 'string') errors.push('email is required.');
@@ -54,13 +64,37 @@ function validateRegister(req, res, next) {
   if (!password || typeof password !== 'string') errors.push('password is required.');
   else if (password.length < 8) errors.push('password must be at least 8 characters.');
 
-  if (!fullName || typeof fullName !== 'string' || fullName.trim().length < 2)
+  if (!fullName || typeof fullName !== 'string' || fullName.trim().length < 2) {
     errors.push('fullName must be at least 2 characters.');
+  }
 
   if (age !== undefined) {
     const ageNum = Number(age);
-    if (!Number.isInteger(ageNum) || ageNum < 1 || ageNum > 120)
+    if (!Number.isInteger(ageNum) || ageNum < 1 || ageNum > 120) {
       errors.push('age must be an integer between 1 and 120.');
+    }
+  }
+
+  if (experienceLevel !== undefined && !VALID_EXPERIENCE.includes(experienceLevel)) {
+    errors.push(`experienceLevel must be one of: ${VALID_EXPERIENCE.join(', ')}.`);
+  }
+
+  if (preferredLanguage !== undefined && !VALID_LANGUAGES.includes(preferredLanguage)) {
+    errors.push(`preferredLanguage must be one of: ${VALID_LANGUAGES.join(', ')}.`);
+  }
+
+  if (
+    preferredSessionLength !== undefined &&
+    !['10 minutes', '15 minutes', '20 minutes', '30 minutes'].includes(preferredSessionLength)
+  ) {
+    errors.push('preferredSessionLength is invalid.');
+  }
+
+  if (
+    pushNotificationsEnabled !== undefined &&
+    typeof pushNotificationsEnabled !== 'boolean'
+  ) {
+    errors.push('pushNotificationsEnabled must be a boolean.');
   }
 
   if (errors.length) return res.status(400).json({ errors });
