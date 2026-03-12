@@ -85,6 +85,9 @@ const proxy = (target) => createProxyMiddleware({
   secure: false,
   proxyTimeout: 60000,
   timeout: 60000,
+  agent: target.startsWith('https')
+      ? new https.Agent({ rejectUnauthorized: false, keepAlive: true })
+      : undefined,
   on: {
     error: (err, req, res) => {
       console.error(`[Gateway] Proxy error → ${target}: ${err.code} – ${err.message}`);
