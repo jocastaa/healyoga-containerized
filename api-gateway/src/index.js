@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const https = require('https');
+const http = require('http');
 
 const app = express();
 app.use(cors());
@@ -37,20 +38,21 @@ app.get('/health', (req, res) => {
 
 // ─── Status — pings all downstream services ───────────────────────────────────
 app.get('/status', async (req, res) => {
-  const https = require('https');
-  const http  = require('http');
-
   const ping = (url) => new Promise((resolve) => {
     const start = Date.now();
     const client = url.startsWith('https') ? https : http;
-    const req = client.get(`${url}/health`, { timeout: 5000, rejectUnauthorized: false }, (r) => {
-      let data = '';
-      r.on('data', chunk => data += chunk);
-      r.on('end', () => {
-        try { resolve({ status: 'ok', latencyMs: Date.now() - start, response: JSON.parse(data) }); }
-        catch { resolve({ status: 'ok', latencyMs: Date.now() - start }); }
-      });
-    });
+    const req = client.get(
+      `${url}/health`,
+      { timeout: 5000, rejectUnauthorized: false },
+      (r) => {
+        let data = '';
+        r.on('data', chunk => data += chunk);
+        r.on('end', () => {
+          try { resolve({ status: 'ok', latencyMs: Date.now() - start, response: JSON.parse(data) }); }
+          catch { resolve({ status: 'ok', latencyMs: Date.now() - start }); }
+        });
+      }
+    );
     req.on('error', (e) => resolve({ status: 'unreachable', error: e.message }));
     req.on('timeout', () => { req.destroy(); resolve({ status: 'timeout' }); });
   });
@@ -76,32 +78,75 @@ app.get('/status', async (req, res) => {
   });
 });
 
-// ─── Proxy config ─────────────────────────────────────────────────────────────
-// No pathRewrite — gateway forwards the full original path as-is.
-// POST /auth/login → auth service receives POST /auth/login ✅
-const https = require('https');
-const proxy = (target) => createProxyMiddleware({
-  target,
-  changeOrigin: true,
-  secure: false,
-  proxyTimeout: 60000,
-  timeout: 60000,
-  agent: target.startsWith('https')
-      ? new https.Agent({ rejectUnauthorized: false, keepAlive: true })
-      : undefined,
-  on: {
-    error: (err, req, res) => {
-      console.error(`[Gateway] Proxy error → ${target}: ${err.code} – ${err.message}`);
-      res.status(502).json({ error: 'Service unavailable', downstream: target, reason: err.code });
-    },
-  },
-});
+// ─── Manual proxy function ────────────────────────────────────────────────────
+// Uses node's native http/https — avoids http-proxy-middleware TLS issues on Render
+function manualProxy(serviceBase) {
+  return (req, res) => {
+    const targetUrl = new URL(req.originalUrl, serviceBase);
+    const isHttps = targetUrl.protocol === 'https:';
+    const client = isHttps ? https : http;
+
+    const options = {
+      hostname: targetUrl.hostname,
+      port: targetUrl.port || (isHttps ? 443 : 80),
+      path: targetUrl.pathname + (targetUrl.search || ''),
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: targetUrl.hostname,  // override host header
+      },
+      rejectUnauthorized: false,   // allow Render self-signed certs
+      timeout: 60000,
+    };
+
+    console.log(`[Gateway] ${req.method} ${req.originalUrl} → ${targetUrl.href}`);
+
+    const proxyReq = client.request(options, (proxyRes) => {
+      res.status(proxyRes.statusCode);
+      Object.entries(proxyRes.headers).forEach(([k, v]) => {
+        // Skip hop-by-hop headers
+        if (!['transfer-encoding', 'connection', 'keep-alive'].includes(k)) {
+          res.setHeader(k, v);
+        }
+      });
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error(`[Gateway] Proxy error → ${serviceBase}: ${err.code} – ${err.message}`);
+      if (!res.headersSent) {
+        res.status(502).json({
+          error: 'Service unavailable',
+          downstream: serviceBase,
+          reason: err.code,
+        });
+      }
+    });
+
+    proxyReq.on('timeout', () => {
+      proxyReq.destroy();
+      if (!res.headersSent) {
+        res.status(504).json({ error: 'Gateway timeout', downstream: serviceBase });
+      }
+    });
+
+    // Forward request body
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+      const body = JSON.stringify(req.body);
+      proxyReq.setHeader('Content-Type', 'application/json');
+      proxyReq.setHeader('Content-Length', Buffer.byteLength(body));
+      proxyReq.write(body);
+    }
+
+    proxyReq.end();
+  };
+}
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
-app.use('/auth',          proxy(SERVICES.auth));
-app.use('/progress',      proxy(SERVICES.progress));
-app.use('/poses',         proxy(SERVICES.pose));
-app.use('/notifications', proxy(SERVICES.notification));
+app.use('/auth',          manualProxy(SERVICES.auth));
+app.use('/progress',      manualProxy(SERVICES.progress));
+app.use('/poses',         manualProxy(SERVICES.pose));
+app.use('/notifications', manualProxy(SERVICES.notification));
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
