@@ -2,20 +2,25 @@ version: '3.9'
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  HEAL YOGA – Cloud-Native Microservices
-#  Single entry point: http://localhost:8080
-#  Run all: docker compose up --build
+#  Single external entry point: http://localhost:8080
+#  Individual services are NOT exposed externally — internal network only
+#  Run: docker compose up --build
 # ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  healy-internal:
+    driver: bridge
 
 services:
 
-  # ── API Gateway (port 8080) — single entry point ─────────────────────────────
+  # ── API Gateway — ONLY external entry point ───────────────────────────────
   api-gateway:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
     container_name: healy-api-gateway
     ports:
-      - "8080:8080"
+      - "8080:8080"          # ← only exposed port
     environment:
       - PORT=8080
       - AUTH_SERVICE_URL=http://auth-service:3002
@@ -27,66 +32,71 @@ services:
       - progress-service
       - pose-service
       - notification-service
+    networks:
+      - healy-internal
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
-  # ── Auth Service (port 3002) ──────────────────────────────────────────────────
+  # ── Auth Service — internal only, no external port ────────────────────────
   auth-service:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
     container_name: healy-auth-service
-    ports:
-      - "3002:3002"
+    expose:
+      - "3002"               # internal only
     environment:
       - PORT=3002
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
       - RESET_PASSWORD_REDIRECT_URL=${RESET_PASSWORD_REDIRECT_URL:-https://healyoga-web.web.app/reset-password}
+    networks:
+      - healy-internal
     restart: unless-stopped
 
-  # ── Progress Service (port 3000) ──────────────────────────────────────────────
+  # ── Progress Service — internal only, no external port ───────────────────
   progress-service:
     build:
       context: ./progress-service
       dockerfile: Dockerfile
     container_name: healy-progress-service
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"               # internal only
     environment:
       - PORT=3000
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    networks:
+      - healy-internal
     restart: unless-stopped
 
-  # ── Pose Service (port 3001) ──────────────────────────────────────────────────
+  # ── Pose Service — internal only, no external port ────────────────────────
   pose-service:
     build:
       context: ./pose-service
       dockerfile: Dockerfile
     container_name: healy-pose-service
-    ports:
-      - "3001:3001"
+    expose:
+      - "3001"               # internal only
     environment:
       - PORT=3001
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    networks:
+      - healy-internal
     restart: unless-stopped
 
-  # ── Notification Service (port 3003) ──────────────────────────────────────────
+  # ── Notification Service — internal only, no external port ───────────────
   notification-service:
     build:
       context: ./notification-service
       dockerfile: Dockerfile
     container_name: healy-notification-service
-    ports:
-      - "3003:3003"
+    expose:
+      - "3003"               # internal only
     environment:
       - PORT=3003
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    networks:
+      - healy-internal
     restart: unless-stopped
