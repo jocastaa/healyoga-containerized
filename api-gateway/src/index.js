@@ -77,26 +77,27 @@ app.get('/status', async (req, res) => {
 });
 
 // ─── Proxy config ─────────────────────────────────────────────────────────────
-const proxy = (target, prefix = '') => createProxyMiddleware({
+// No pathRewrite — gateway forwards the full original path as-is.
+// POST /auth/login → auth service receives POST /auth/login ✅
+const proxy = (target) => createProxyMiddleware({
   target,
   changeOrigin: true,
   secure: false,
   proxyTimeout: 60000,
   timeout: 60000,
-  pathRewrite: (path) => `${prefix}${path}`,
   on: {
     error: (err, req, res) => {
-      console.error(`[Gateway] Proxy error → ${target}:`, err.message);
-      res.status(502).json({ error: 'Service unavailable', downstream: target });
+      console.error(`[Gateway] Proxy error → ${target}: ${err.code} – ${err.message}`);
+      res.status(502).json({ error: 'Service unavailable', downstream: target, reason: err.code });
     },
   },
 });
 
-// ─── Routes — clean public API surface ───────────────────────────────────────
-app.use('/auth',          proxy(SERVICES.auth, '/auth'));
-app.use('/progress',      proxy(SERVICES.progress, '/progress'));
-app.use('/poses',         proxy(SERVICES.pose, '/poses'));
-app.use('/notifications', proxy(SERVICES.notification, '/notifications'));
+// ─── Routes ───────────────────────────────────────────────────────────────────
+app.use('/auth',          proxy(SERVICES.auth));
+app.use('/progress',      proxy(SERVICES.progress));
+app.use('/poses',         proxy(SERVICES.pose));
+app.use('/notifications', proxy(SERVICES.notification));
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
