@@ -1,9 +1,36 @@
 version: '3.9'
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  HEAL YOGA – Cloud-Native Microservices
+#  Run all services: docker compose up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
+
+  # ── Auth Service (port 3002) ─────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: healy-auth-service
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - RESET_PASSWORD_REDIRECT_URL=${RESET_PASSWORD_REDIRECT_URL:-https://healyoga-web.web.app/reset-password}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Progress Service (port 3000) ─────────────────────────────────────────────
   progress-service:
     build:
-      context: .
+      context: ./progress-service
       dockerfile: Dockerfile
     container_name: healy-progress-service
     ports:
@@ -18,4 +45,41 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+
+  # ── Pose Service (port 3001) ──────────────────────────────────────────────────
+  pose-service:
+    build:
+      context: ./pose-service
+      dockerfile: Dockerfile
+    container_name: healy-pose-service
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Notification Service (port 3003) ──────────────────────────────────────────
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: healy-notification-service
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

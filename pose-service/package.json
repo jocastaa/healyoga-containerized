@@ -1,7 +1,7 @@
 {
-  "name": "progress-service",
+  "name": "pose-service",
   "version": "1.0.0",
-  "description": "HEAL YOGA – Cloud-native progress tracking microservice",
+  "description": "HEAL YOGA – Cloud-native pose tracking & activity microservice",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
