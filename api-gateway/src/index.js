@@ -79,6 +79,7 @@ app.get('/status', async (req, res) => {
 // ─── Proxy config ─────────────────────────────────────────────────────────────
 // No pathRewrite — gateway forwards the full original path as-is.
 // POST /auth/login → auth service receives POST /auth/login ✅
+const https = require('https');
 const proxy = (target) => createProxyMiddleware({
   target,
   changeOrigin: true,
