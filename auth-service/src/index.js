@@ -18,6 +18,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+console.log('ENV CHECK:', {
+  supabaseUrl: process.env.SUPABASE_URL ? '✅ set' : '❌ MISSING',
+  supabaseKey: process.env.SUPABASE_SERVICE_KEY ? '✅ set' : '❌ MISSING',
+});
+
 function getAgeGroup(age) {
   if (age < 18)  return 'Under 18';
   if (age < 25)  return '18-24';
