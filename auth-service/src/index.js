@@ -53,7 +53,9 @@ app.post('/auth/register', validateRegister, async (req, res, next) => {
     }
 
     const userId = data.user.id;
-    await supabase.from('profiles').upsert({
+
+    // ── Insert profile row ──────────────────────────────────────────────────
+    const { error: profileError } = await supabase.from('profiles').upsert({
       id: userId,
       full_name: fullName.trim(),
       age: age ? Number(age) : null,
@@ -62,6 +64,23 @@ app.post('/auth/register', validateRegister, async (req, res, next) => {
       preferred_language: 'en',
       push_notifications_enabled: false,
     });
+
+    if (profileError) {
+      // Log full error details so we can see exactly what column/constraint failed
+      console.error('❌ Profile upsert failed:', {
+        message: profileError.message,
+        details: profileError.details,
+        hint:    profileError.hint,
+        code:    profileError.code,
+      });
+      // Auth user was created — return 201 with warning so Flutter can still proceed
+      return res.status(201).json({
+        success: true,
+        userId,
+        email: data.user.email,
+        warning: 'Profile row creation failed: ' + profileError.message,
+      });
+    }
 
     return res.status(201).json({ success: true, userId, email: data.user.email });
   } catch (err) { next(err); }
@@ -90,7 +109,6 @@ app.post('/auth/logout', async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (token) {
-      // Invalidate the specific user session, not the service client
       const userClient = createClient(
         process.env.SUPABASE_URL,
         process.env.SUPABASE_SERVICE_KEY,
@@ -112,7 +130,6 @@ app.post('/auth/reset-password', async (req, res, next) => {
       redirectTo: process.env.RESET_PASSWORD_REDIRECT_URL,
     });
     if (error) throw error;
-    // Always return success to avoid email enumeration
     return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
   } catch (err) { next(err); }
 });
@@ -132,7 +149,7 @@ app.get('/auth/profile/:userId', validateUserId, async (req, res, next) => {
 app.put('/auth/profile/:userId', validateUserId, validateProfileUpdate, async (req, res, next) => {
   const { fullName, age, experienceLevel, preferredLanguage, pushNotificationsEnabled, profileImageUrl } = req.body;
   try {
-    const updates = { updated_at: new Date().toISOString() };
+    const updates = {};
     if (fullName !== undefined) updates.full_name = fullName.trim();
     if (age !== undefined) { updates.age = Number(age); updates.age_group = getAgeGroup(Number(age)); }
     if (experienceLevel !== undefined) updates.experience_level = experienceLevel;
