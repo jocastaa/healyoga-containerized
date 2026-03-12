@@ -77,12 +77,13 @@ app.get('/status', async (req, res) => {
 });
 
 // ─── Proxy config ─────────────────────────────────────────────────────────────
-const proxy = (target) => createProxyMiddleware({
+const proxy = (target, prefix = '') => createProxyMiddleware({
   target,
   changeOrigin: true,
   secure: false,
-  proxyTimeout: 60000,  // ← 60s for Render free tier cold starts
-  timeout: 60000,       // ← 60s socket timeout
+  proxyTimeout: 60000,
+  timeout: 60000,
+  pathRewrite: (path) => `${prefix}${path}`,
   on: {
     error: (err, req, res) => {
       console.error(`[Gateway] Proxy error → ${target}:`, err.message);
@@ -92,10 +93,10 @@ const proxy = (target) => createProxyMiddleware({
 });
 
 // ─── Routes — clean public API surface ───────────────────────────────────────
-app.use('/auth',          proxy(SERVICES.auth));
-app.use('/progress',      proxy(SERVICES.progress));
-app.use('/poses',         proxy(SERVICES.pose));
-app.use('/notifications', proxy(SERVICES.notification));
+app.use('/auth',          proxy(SERVICES.auth, '/auth'));
+app.use('/progress',      proxy(SERVICES.progress, '/progress'));
+app.use('/poses',         proxy(SERVICES.pose, '/poses'));
+app.use('/notifications', proxy(SERVICES.notification, '/notifications'));
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
