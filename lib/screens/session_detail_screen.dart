@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/yoga_session.dart';
 import '../models/yoga_pose.dart';
+import '../services/api_service.dart';
 import 'pose_detail_screen.dart';
 import 'full_session_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/global_audio_service.dart';
 import '../utils/yoga_localization_helper.dart';
 import '../l10n/app_localizations.dart';
+import '../services/api_service.dart';
 
 class SessionDetailScreen extends StatefulWidget {
   final YogaSession session;
@@ -29,21 +30,30 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   }
 
   Future<void> _loadPoseProgress() async {
-    final supabase = Supabase.instance.client;
+    try {
+      final userId = ApiService().userId;
+      if (userId == null) return;
 
-    final response = await supabase
-        .from('user_progress')
-        .select('pose_id, is_completed')
-        .eq('session_level', widget.session.levelKey);
+      final rows = await ApiService().getPoseProgress(
+        userId: userId,
+        sessionLevel: widget.session.levelKey,
+      );
 
-    final progressMap = <String, bool>{};
-    for (final row in response) {
-      progressMap[row['pose_id'].toString()] = row['is_completed'] == true;
+      final progressMap = <String, bool>{};
+      for (final row in rows) {
+        final poseId = row['pose_id']?.toString();
+        if (poseId != null) {
+          progressMap[poseId] = true;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        poseProgress = progressMap;
+      });
+    } catch (e) {
+      debugPrint('❌ loadPoseProgress: $e');
     }
-
-    setState(() {
-      poseProgress = progressMap;
-    });
   }
 
   @override

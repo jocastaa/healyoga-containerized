@@ -164,3 +164,48 @@ class ApiException implements Exception {
   @override
   String toString() => message;
 }
+
+// ─── Pose endpoints ─────────────────────────────────────────────────────
+
+Future<List<dynamic>> getPoseProgress({
+  required String userId,
+  required String sessionLevel,
+}) async {
+  final data = await _get('/poses/$userId/$sessionLevel');
+  return (data['poses'] as List?) ?? [];
+}
+
+Future<bool> isPoseCompleted({
+  required String userId,
+  required String sessionLevel,
+  required String poseId,
+}) async {
+  final data = await _get('/poses/$userId/$sessionLevel/$poseId');
+  return data['completed'] == true;
+}
+
+Future<void> markPoseCompleted({
+  required String userId,
+  required String sessionLevel,
+  required String poseId,
+}) async {
+  await _post('/poses/$userId/complete', {
+    'sessionLevel': sessionLevel,
+    'poseId': poseId,
+  });
+}
+
+Future<void> recordPoseActivity({
+  required String userId,
+  required String poseId,
+  required String poseName,
+  required int durationSeconds,
+  required String sessionLevel,
+}) async {
+  await _post('/poses/$userId/activity', {
+    'poseId': poseId,
+    'poseName': poseName,
+    'durationSeconds': durationSeconds,
+    'sessionLevel': sessionLevel,
+  });
+}

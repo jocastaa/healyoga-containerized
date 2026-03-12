@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_player/video_player.dart';
 import '../l10n/app_localizations.dart';
 import '../models/yoga_pose.dart';
@@ -14,6 +13,7 @@ import '../services/pose_progress_service.dart';
 import '../services/simple_pin_dialog.dart';
 import '../services/simple_pin_service.dart';
 import '../utils/yoga_localization_helper.dart';
+import '../services/api_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants  (mirrors pose_detail_screen.dart)
@@ -324,22 +324,23 @@ class _FullSessionScreenState extends State<FullSessionScreen> {
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> _savePose() async {
-    final uid = Supabase.instance.client.auth.currentUser?.id;
+    final uid = ApiService().userId;
     if (uid == null) return;
+
     try {
-      final sb = Supabase.instance.client;
-      await sb.from('pose_activity').insert({
-        'user_id': uid,
-        'pose_id': _pose.id,
-        'pose_name':
-        YogaLocalizationHelper.getPoseName(context, _pose.nameKey),
-        'session_level': widget.session.levelKey,
-        'duration_seconds': _pose.durationSeconds,
-        'completed_at': DateTime.now().toIso8601String(),
-        'activity_date': DateTime.now().toIso8601String().split('T')[0],
-      });
+      await ApiService().recordPoseActivity(
+        userId: uid,
+        poseId: _pose.id,
+        poseName: YogaLocalizationHelper.getPoseName(context, _pose.nameKey),
+        durationSeconds: _pose.durationSeconds,
+        sessionLevel: widget.session.levelKey,
+      );
+
       await _progressSvc.markPoseCompleted(
-          uid, widget.session.levelKey, _pose.id);
+        uid,
+        widget.session.levelKey,
+        _pose.id,
+      );
     } catch (e) {
       debugPrint('❌ savePose: $e');
     }

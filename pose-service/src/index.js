@@ -52,16 +52,29 @@ app.get('/poses/:userId/:sessionLevel/:poseId', validateUserId, validateSessionL
 app.post('/poses/:userId/complete', validateUserId, validatePoseComplete, async (req, res, next) => {
   const { userId } = req.params;
   const { sessionLevel, poseId } = req.body;
+
   try {
-    const { error } = await supabase.from('pose_progress').upsert({
-      user_id: userId,
-      session_level: sessionLevel,
-      pose_id: poseId,
-      completed_at: new Date().toISOString(),
-    });
+    const { error } = await supabase
+      .from('pose_progress')
+      .upsert(
+        {
+          user_id: userId,
+          session_level: sessionLevel,
+          pose_id: poseId,
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'user_id,session_level,pose_id',
+        }
+      );
+
     if (error) throw error;
+
     return res.json({ success: true, userId, sessionLevel, poseId });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ─── POST /poses/:userId/activity ────────────────────────────────────────────
