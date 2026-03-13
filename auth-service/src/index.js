@@ -108,6 +108,7 @@ app.post('/auth/login', validateLogin, async (req, res, next) => {
     return res.json({
       success: true,
       userId: data.user.id,
+      email: data.user.email,
       accessToken: data.session.access_token,
       refreshToken: data.session.refresh_token,
       expiresAt: data.session.expires_at,

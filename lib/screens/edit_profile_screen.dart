@@ -1,8 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import '../services/notification_service.dart';
 import '../services/global_audio_service.dart';
 import '../services/api_service.dart';
@@ -19,14 +16,10 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  // Keep supabase client ONLY for storage (avatar upload/remove)
-  final supabase = Supabase.instance.client;
-
   bool get isWeb => MediaQuery.of(context).size.width > 600;
 
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
-  String? _profileImageUrl;
 
   String _experienceLevel = 'Beginner';
   String _sessionLength = '15 minutes';
@@ -88,7 +81,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
 
       _pushNotifications = profile['push_notifications_enabled'] ?? true;
-      _profileImageUrl = profile['profile_image_url'];
       _dailyPracticeReminder = profile['daily_practice_reminder'] ?? true;
       _reminderTime = profile['reminder_time'] ?? '9:00 AM';
       _soundEffectsEnabled = profile['sound_effects_enabled'] ?? true;
@@ -129,52 +121,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (period == 'PM' && hour < 12) hour += 12;
     else if (period == 'AM' && hour == 12) hour = 0;
     return TimeOfDay(hour: hour, minute: minute);
-  }
-
-  // ── Avatar upload — still uses Supabase Storage directly ─────────────────
-  Future<void> _pickAndUploadImage() async {
-    final userId = ApiService().userId;
-    if (userId == null) return;
-
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (pickedFile == null) return;
-
-    final filePath = '$userId/profile.jpg';
-    try {
-      if (_isWebPlatform) {
-        final bytes = await pickedFile.readAsBytes();
-        await supabase.storage.from('avatars').uploadBinary(filePath, bytes, fileOptions: const FileOptions(upsert: true));
-      } else {
-        final file = File(pickedFile.path);
-        await supabase.storage.from('avatars').upload(filePath, file, fileOptions: const FileOptions(upsert: true));
-      }
-
-      final rawUrl = supabase.storage.from('avatars').getPublicUrl(filePath);
-      final imageUrl = '$rawUrl?t=${DateTime.now().millisecondsSinceEpoch}';
-
-      // Persist URL through auth-service
-      await ApiService().updateProfile(ApiService().userId!, {'profileImageUrl': imageUrl});
-
-      setState(() => _profileImageUrl = imageUrl);
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.photoUpdated)));
-    } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(context)!.photoFail}: $e')));
-    }
-  }
-
-  Future<void> _removeProfileImage() async {
-    final userId = ApiService().userId;
-    if (userId == null) return;
-
-    try {
-      await supabase.storage.from('avatars').remove(['/profile.jpg']);
-      await ApiService().updateProfile(ApiService().userId!, {'profileImageUrl': null});
-      setState(() => _profileImageUrl = null);
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile image removed')));
-    } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to remove image: $e')));
-    }
   }
 
   // ── Save profile via auth-service ─────────────────────────────────────────
@@ -286,39 +232,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: isWeb ? 28 : 20),
                 child: Column(children: [
-                  // Profile image
-                  Center(child: Stack(children: [
-                    CircleAvatar(
-                      radius: 60, backgroundColor: turquoise.withOpacity(0.2),
-                      backgroundImage: _profileImageUrl != null ? NetworkImage(_profileImageUrl!) : null,
-                      child: _profileImageUrl == null ? const Icon(Icons.person, size: 60, color: turquoise) : null,
+                  // Profile avatar (static — no upload)
+                  Center(
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor: turquoise.withOpacity(0.2),
+                      child: const Icon(Icons.person, size: 60, color: turquoise),
                     ),
-                    Positioned(
-                      bottom: 0, right: 0,
-                      child: PopupMenuButton<String>(
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(color: turquoise, shape: BoxShape.circle),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                        ),
-                        onSelected: (value) {
-                          if (value == 'upload') _pickAndUploadImage();
-                          else if (value == 'remove') _removeProfileImage();
-                        },
-                        itemBuilder: (context) => [
-                          PopupMenuItem(value: 'upload', child: Row(children: [
-                            const Icon(Icons.upload, color: Color(0xFF2E6F68)), const SizedBox(width: 8),
-                            Text(AppLocalizations.of(context)!.uploadPhoto),
-                          ])),
-                          if (_profileImageUrl != null)
-                            PopupMenuItem(value: 'remove', child: Row(children: [
-                              const Icon(Icons.delete, color: Colors.red), const SizedBox(width: 8),
-                              Text(AppLocalizations.of(context)!.removePhoto),
-                            ])),
-                        ],
-                      ),
-                    ),
-                  ])),
+                  ),
                   const SizedBox(height: 24),
 
                   // Basic info

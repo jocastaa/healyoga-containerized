@@ -7,18 +7,10 @@
     <list default="true" id="d342c8de-ffec-43ce-8b72-add63bd9ac95" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/auth-service/src/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/middleware.js" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/middleware.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/8b4cf81de84a583e75d42b6312dbb4bb.cache.dill.track.dill" beforeDir="false" afterPath="$PROJECT_DIR$/build/8b4cf81de84a583e75d42b6312dbb4bb.cache.dill.track.dill" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/complete_profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/complete_profile_screen.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/edit_profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/edit_profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/full_session_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/full_session_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/level_selection_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/level_selection_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/login_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/login_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/api_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/api_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/notification_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/notification_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/notification_web.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/notification_web.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notification-service/src/middleware.js" beforeDir="false" afterPath="$PROJECT_DIR$/notification-service/src/middleware.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pose-service/src/middleware.js" beforeDir="false" afterPath="$PROJECT_DIR$/pose-service/src/middleware.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/progress-service/src/middleware.js" beforeDir="false" afterPath="$PROJECT_DIR$/progress-service/src/middleware.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/profile_screen.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -83,7 +83,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
+              (route) => false,
         );
       }
     } on ApiException catch (e) {
@@ -148,7 +148,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
                     const SizedBox(height: 16),
                     _buildDropdown(icon: Icons.timer_outlined, label: AppLocalizations.of(context)!.sessionLength,
                         value: _preferredSessionLength,
-                        items: const ['5 minutes', '10 minutes', '15 minutes', '20 minutes', '30 minutes', '45 minutes', '60 minutes'],
+                        items: const ['5 minutes', '10 minutes', '15 minutes', '20 minutes', '30 minutes'],
                         onChanged: (v) => setState(() => _preferredSessionLength = v!)),
                     const SizedBox(height: 16),
                     _buildDropdown(icon: Icons.language, label: AppLocalizations.of(context)!.preferredLanguage,
@@ -177,7 +177,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
                             : Text(AppLocalizations.of(context)!.continueButton,
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                   ]),
@@ -191,7 +191,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
   }
 
   Widget _buildTextField({required IconData icon, required String label, required TextEditingController controller,
-      TextInputType keyboardType = TextInputType.text}) {
+    TextInputType keyboardType = TextInputType.text}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextField(
@@ -207,7 +207,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen>
   }
 
   Widget _buildDropdown({required IconData icon, required String label, required String value,
-      required List<String> items, required ValueChanged<String?> onChanged}) {
+    required List<String> items, required ValueChanged<String?> onChanged}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade400)),

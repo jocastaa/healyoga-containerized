@@ -15,7 +15,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Keep supabase ONLY for stats tables (session_completions, pose_activity)
+
   final supabase = Supabase.instance.client;
 
   static const background = Color(0xFFEAF6F4);
@@ -161,9 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final name = _profile?['full_name'] ?? 'User';
-    // Email lives in auth.users, not profiles — read from ApiService cache
     final email = _profile?['email'] ?? ApiService().userEmail ?? '';
-    final imageUrl = _profile?['profile_image_url'];
 
     return Scaffold(
       body: Container(
@@ -182,8 +180,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         child: SafeArea(
           child: isWeb
-              ? _buildWebLayout(name, email, imageUrl)
-              : _buildMobileLayout(name, email, imageUrl),
+              ? _buildWebLayout(name, email)
+              : _buildMobileLayout(name, email),
         ),
       ),
     );
@@ -191,7 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ─── Web Layout ───────────────────────────────────────────────────────────
 
-  Widget _buildWebLayout(String name, String email, String? imageUrl) {
+  Widget _buildWebLayout(String name, String email) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -233,7 +231,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(width: 300, child: _buildProfileCard(name, email, imageUrl)),
+                        SizedBox(width: 300, child: _buildProfileCard(name, email)),
                         const SizedBox(width: 24),
                         Expanded(
                           child: Column(
@@ -331,7 +329,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ─── Mobile Layout ────────────────────────────────────────────────────────
 
-  Widget _buildMobileLayout(String name, String email, String? imageUrl) {
+  Widget _buildMobileLayout(String name, String email) {
     return Column(
       children: [
         Padding(
@@ -365,7 +363,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
-                _buildProfileCard(name, email, imageUrl),
+                _buildProfileCard(name, email),
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -440,7 +438,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ─── Shared Components ────────────────────────────────────────────────────
 
-  Widget _buildProfileCard(String name, String email, String? imageUrl) {
+  Widget _buildProfileCard(String name, String email) {
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
@@ -456,10 +454,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               gradient: LinearGradient(colors: [turquoise.withOpacity(0.6), turquoise.withOpacity(0.2)]),
             ),
             padding: const EdgeInsets.all(4),
-            child: CircleAvatar(
+            child: const CircleAvatar(
               radius: 60,
-              backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-              child: imageUrl == null ? const Icon(Icons.person, size: 48, color: turquoise) : null,
+              backgroundColor: Colors.transparent,
+              child: Icon(Icons.person, size: 48, color: turquoise),
             ),
           ),
           const SizedBox(height: 20),
