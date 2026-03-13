@@ -347,25 +347,10 @@ class _FullSessionScreenState extends State<FullSessionScreen> {
   }
 
   Future<void> _saveSession() async {
-    final uid = Supabase.instance.client.auth.currentUser?.id;
+    final uid = ApiService().userId;
     if (uid == null) return;
-    try {
-      final total = widget.session.allPoses
-          .fold<int>(0, (s, p) => s + p.durationSeconds);
-      await Supabase.instance.client.from('session_completions').insert({
-        'user_id': uid,
-        'session_id': widget.session.id,
-        'session_name': widget.session.titleKey,
-        'session_level': widget.session.levelKey,
-        'total_poses': widget.session.allPoses.length,
-        'total_duration_seconds': total,
-        'completed_at': DateTime.now().toIso8601String(),
-        'completion_date':
-        DateTime.now().toIso8601String().split('T')[0],
-      });
-    } catch (e) {
-      debugPrint('❌ saveSession: $e');
-    }
+
+    debugPrint('ℹ️ Session completion not yet migrated to API for user $uid');
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -189,18 +189,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await ApiService().updateProfile(ApiService().userId!, {
+      final userId = ApiService().userId!;
+
+      // ── Save all profile fields via auth-service ──────────────────────────
+      await ApiService().updateProfile(userId, {
         'fullName': _nameController.text.trim(),
         'age': age,
         'experienceLevel': _experienceLevel,
+        'preferredSessionLength': _sessionLength,
         'preferredLanguage': _language == 'English' ? 'en'
             : _language == 'Mandarin (Simplified)' ? 'zh-Hans'
             : 'zh-Hant',
         'pushNotificationsEnabled': _pushNotifications,
-        // Note: daily_practice_reminder, reminder_time, sound_effects_enabled,
-        // volume_level are app-specific fields. Add them to your auth-service
-        // profile update handler if needed, or store locally.
+        'dailyPracticeReminder': _dailyPracticeReminder,
+        'reminderTime': _reminderTime,
+        'soundEffectsEnabled': _soundEffectsEnabled,
+        'volumeLevel': _volumeLevel,
       });
+
+      // ── Sync daily reminder with notification service ─────────────────────
+      if (_dailyPracticeReminder) {
+        final time = _parseTimeOfDay(_reminderTime);
+        await ApiService().scheduleDailyReminder(
+          userId: userId,
+          hour: time.hour,
+          minute: time.minute,
+        );
+      } else {
+        await ApiService().cancelDailyReminder(userId);
+      }
 
       if (mounted) Navigator.pop(context);
     } on ApiException catch (e) {

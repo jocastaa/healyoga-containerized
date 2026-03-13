@@ -1,5 +1,6 @@
 // Use the modern package:web for Flutter 3.x+
 import 'package:web/web.dart' as web;
+import 'dart:js_interop';
 
 class WebNotificationHelper {
   static Future<bool> show({
@@ -7,15 +8,16 @@ class WebNotificationHelper {
     required String body,
     String? icon,
   }) async {
-    // Ask for permission if we haven't already.
-    // If the user has already granted, this resolves immediately.
+    // Check current permission
     final currentPermission = web.Notification.permission;
-    print('WebNotification: current permission=$currentPermission');
+    debugLog('WebNotification: current permission=$currentPermission');
+
     if (currentPermission != 'granted') {
-      final result = web.Notification.requestPermission();
-      print('WebNotification: permission request result=$result');
+      // requestPermission() returns a JS Promise — must be awaited properly
+      final result = await web.Notification.requestPermission().toDart;
+      debugLog('WebNotification: permission result=$result');
       if (result != 'granted') {
-        print('WebNotification: permission not granted ($result)');
+        debugLog('WebNotification: permission not granted ($result)');
         return false;
       }
     }
@@ -27,8 +29,13 @@ class WebNotificationHelper {
       );
       return true;
     } catch (e) {
-      print('WebNotification: failed to show notification: $e');
+      debugLog('WebNotification: failed to show notification: $e');
       return false;
     }
+  }
+
+  static void debugLog(String msg) {
+    // ignore: avoid_print
+    print(msg);
   }
 }

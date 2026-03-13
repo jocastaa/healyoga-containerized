@@ -75,6 +75,8 @@ class _LoginScreenState extends State<LoginScreen>
         password: _passwordController.text.trim(),
       );
 
+      debugPrint('Logged in userId = ${ApiService().userId}');
+
       // Sync language preference from profile
       final userId = ApiService().userId!;
       try {

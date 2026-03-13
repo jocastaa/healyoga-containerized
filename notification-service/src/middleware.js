@@ -3,8 +3,9 @@
 // Provides: helmet setup, request logger, input validators, error handler
 
 const VALID_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
-const VALID_LANGUAGES = ['en', 'zh'];
+const VALID_LANGUAGES = ['en', 'zh-Hans', 'zh-Hant'];
 const VALID_EXPERIENCE = ['Beginner', 'Intermediate', 'Advanced'];
+const VALID_SESSION_LENGTHS = ['5 minutes', '10 minutes', '15 minutes', '20 minutes', '30 minutes'];
 
 // ─── Request logger ───────────────────────────────────────────────────────────
 function requestLogger(req, res, next) {
@@ -77,7 +78,11 @@ function validateLogin(req, res, next) {
 }
 
 function validateProfileUpdate(req, res, next) {
-  const { age, experienceLevel, preferredLanguage } = req.body;
+  const {
+    age, experienceLevel, preferredLanguage, preferredSessionLength,
+    pushNotificationsEnabled, dailyPracticeReminder, reminderTime,
+    soundEffectsEnabled, volumeLevel,
+  } = req.body;
   const errors = [];
 
   if (age !== undefined) {
@@ -91,6 +96,27 @@ function validateProfileUpdate(req, res, next) {
 
   if (preferredLanguage !== undefined && !VALID_LANGUAGES.includes(preferredLanguage))
     errors.push(`preferredLanguage must be one of: ${VALID_LANGUAGES.join(', ')}.`);
+
+  if (preferredSessionLength !== undefined && !VALID_SESSION_LENGTHS.includes(preferredSessionLength))
+    errors.push(`preferredSessionLength must be one of: ${VALID_SESSION_LENGTHS.join(', ')}.`);
+
+  if (pushNotificationsEnabled !== undefined && typeof pushNotificationsEnabled !== 'boolean')
+    errors.push('pushNotificationsEnabled must be a boolean.');
+
+  if (dailyPracticeReminder !== undefined && typeof dailyPracticeReminder !== 'boolean')
+    errors.push('dailyPracticeReminder must be a boolean.');
+
+  if (reminderTime !== undefined && (typeof reminderTime !== 'string' || !/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(reminderTime.trim())))
+    errors.push('reminderTime must be in format "H:MM AM/PM".');
+
+  if (soundEffectsEnabled !== undefined && typeof soundEffectsEnabled !== 'boolean')
+    errors.push('soundEffectsEnabled must be a boolean.');
+
+  if (volumeLevel !== undefined) {
+    const v = Number(volumeLevel);
+    if (isNaN(v) || v < 0 || v > 1)
+      errors.push('volumeLevel must be a number between 0 and 1.');
+  }
 
   if (errors.length) return res.status(400).json({ errors });
   next();

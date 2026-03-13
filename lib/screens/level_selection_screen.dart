@@ -7,6 +7,7 @@ import '../data/yoga_data_complete.dart';
 import 'session_detail_screen.dart';
 import '../services/global_audio_service.dart';
 import '../l10n/app_localizations.dart';
+import '../services/api_service.dart';
 
 class LevelSelectionScreen extends StatefulWidget {
   final Function(int)? onNavigateToTab;
@@ -40,7 +41,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     });
 
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
+      final userId = ApiService().userId;
       if (userId == null) throw Exception('User not authenticated');
 
       final progress = await _progressService.getUserProgress(userId);

@@ -70,10 +70,10 @@ app.post('/auth/register', validateRegister, async (req, res, next) => {
       full_name: fullName.trim(),
       age: age ? Number(age) : null,
       age_group: age ? getAgeGroup(Number(age)) : null,
-      experience_level: experienceLevel ?? 'Beginner',
-      preferred_language: preferredLanguage ?? 'en',
-      preferred_session_length: preferredSessionLength ?? '15 minutes',
-      push_notifications_enabled: pushNotificationsEnabled ?? true,
+      experience_level: experienceLevel || 'Beginner',
+      preferred_language: preferredLanguage || 'en',
+      preferred_session_length: preferredSessionLength || '15 minutes',
+      push_notifications_enabled: pushNotificationsEnabled ?? false,
     });
 
     if (profileError) {
@@ -158,19 +158,28 @@ app.get('/auth/profile/:userId', validateUserId, async (req, res, next) => {
 
 // ─── PUT /auth/profile/:userId ────────────────────────────────────────────────
 app.put('/auth/profile/:userId', validateUserId, validateProfileUpdate, async (req, res, next) => {
-  const { fullName, age, experienceLevel, preferredLanguage, pushNotificationsEnabled, profileImageUrl } = req.body;
+  const {
+    fullName, age, experienceLevel, preferredLanguage, preferredSessionLength,
+    pushNotificationsEnabled, dailyPracticeReminder, reminderTime,
+    soundEffectsEnabled, volumeLevel, profileImageUrl,
+  } = req.body;
   try {
     const updates = {};
-    if (fullName !== undefined) updates.full_name = fullName.trim();
-    if (age !== undefined) { updates.age = Number(age); updates.age_group = getAgeGroup(Number(age)); }
-    if (experienceLevel !== undefined) updates.experience_level = experienceLevel;
-    if (preferredLanguage !== undefined) updates.preferred_language = preferredLanguage;
-    if (pushNotificationsEnabled !== undefined) updates.push_notifications_enabled = Boolean(pushNotificationsEnabled);
-    if (profileImageUrl !== undefined) updates.profile_image_url = profileImageUrl ?? null;
+    if (fullName !== undefined)                   updates.full_name = fullName.trim();
+    if (age !== undefined)                        { updates.age = Number(age); updates.age_group = getAgeGroup(Number(age)); }
+    if (experienceLevel !== undefined)            updates.experience_level = experienceLevel;
+    if (preferredLanguage !== undefined)          updates.preferred_language = preferredLanguage;
+    if (preferredSessionLength !== undefined)     updates.preferred_session_length = preferredSessionLength;
+    if (pushNotificationsEnabled !== undefined)   updates.push_notifications_enabled = Boolean(pushNotificationsEnabled);
+    if (dailyPracticeReminder !== undefined)      updates.daily_practice_reminder = Boolean(dailyPracticeReminder);
+    if (reminderTime !== undefined)               updates.reminder_time = reminderTime;
+    if (soundEffectsEnabled !== undefined)        updates.sound_effects_enabled = Boolean(soundEffectsEnabled);
+    if (volumeLevel !== undefined)                updates.volume_level = Number(volumeLevel);
+    if (profileImageUrl !== undefined)            updates.profile_image_url = profileImageUrl ?? null;
 
     const { error } = await supabase.from('profiles').update(updates).eq('id', req.params.userId);
     if (error) throw error;
-    return res.json({ success: true, userId: req.params.userId, updated: updates });
+    return res.json({ success: true, userId: req.params.userId, updated: Object.keys(updates) });
   } catch (err) { next(err); }
 });
 

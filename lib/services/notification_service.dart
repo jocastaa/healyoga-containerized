@@ -4,8 +4,9 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 
+import '../services/api_service.dart';
 import 'notification_web_stub.dart'
-    if (dart.library.html) 'notification_web.dart';
+if (dart.library.html) 'notification_web.dart';
 
 class NotificationService {
   // Singleton pattern
@@ -15,7 +16,7 @@ class NotificationService {
 
   // Flutter local notifications plugin instance
   final FlutterLocalNotificationsPlugin notificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin();
 
   // Keep track of active timers for the web so we can cancel them if needed
   final Map<int, Timer> _webTimers = {};
@@ -53,7 +54,7 @@ class NotificationService {
     }
 
     const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    AndroidInitializationSettings('@mipmap/ic_launcher');
 
     const InitializationSettings settings = InitializationSettings(
       android: androidSettings,
@@ -77,8 +78,8 @@ class NotificationService {
     if (kIsWeb) return;
     final androidPlugin = notificationsPlugin
         .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
+        AndroidFlutterLocalNotificationsPlugin
+    >();
 
     await androidPlugin?.requestNotificationsPermission();
 
@@ -87,7 +88,7 @@ class NotificationService {
     } catch (_) {
       debugPrint(
         'requestExactAlarmsPermission not available — '
-        'update flutter_local_notifications.',
+            'update flutter_local_notifications.',
       );
     }
   }
@@ -107,8 +108,8 @@ class NotificationService {
 
     final androidPlugin = notificationsPlugin
         .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
+        AndroidFlutterLocalNotificationsPlugin
+    >();
 
     await androidPlugin?.createNotificationChannel(dailyChannel);
 
@@ -161,16 +162,33 @@ class NotificationService {
     }
   }
 
-  // Schedule a daily recurring notification at a specific time
+  // Schedule a daily recurring notification at a specific time.
+  // Also persists the schedule to the notification-service backend.
   Future<void> scheduleDailyNotification({
     required int id,
     required String title,
     required String body,
-    required int hour, // in 24-hour format (0-23)
-    required int minute, // minute (0-59)
+    required int hour,
+    required int minute,
   }) async {
+    // ── Persist to notification microservice ──────────────────────────────
+    final userId = ApiService().userId;
+    if (userId != null) {
+      try {
+        await ApiService().scheduleDailyReminder(
+          userId: userId,
+          hour: hour,
+          minute: minute,
+        );
+        debugPrint('✅ Reminder synced to notification-service ($hour:${minute.toString().padLeft(2, '0')})');
+      } catch (e) {
+        debugPrint('⚠️  Could not sync reminder to notification-service: $e');
+        // Non-fatal — local notification still scheduled below
+      }
+    }
+
     if (kIsWeb) {
-      // WEB LOGIC: Use Dart Timer (only works while the app/tab is open)
+      // WEB: Use Dart Timer (works while tab is open)
       _webTimers[id]?.cancel();
 
       final now = DateTime.now();
@@ -180,22 +198,18 @@ class NotificationService {
       }
 
       final delay = scheduledDate.difference(now);
-      debugPrint(
-        '⏳ Web notification $id scheduled in ${delay.inMinutes} minutes',
-      );
+      debugPrint('⏳ Web notification $id scheduled in ${delay.inMinutes} minutes');
 
-      // First firing after computed delay, then once per day thereafter.
       _webTimers[id] = Timer(delay, () {
         _showWebNotification(title, body);
         _webTimers[id] = Timer.periodic(const Duration(days: 1), (_) {
           _showWebNotification(title, body);
         });
       });
-
       return;
     }
 
-    // MOBILE LOGIC: Use Native zoned schedule.
+    // MOBILE: Use native zoned schedule
     final scheduledTime = _nextInstanceOfTime(hour, minute);
     await notificationsPlugin.zonedSchedule(
       id,
@@ -205,7 +219,7 @@ class NotificationService {
       _notificationDetails(),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+      UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
     );
   }
@@ -229,8 +243,22 @@ class NotificationService {
     return scheduledDate;
   }
 
-  // Cancel a specific notification by ID
+  // Cancel a specific notification by ID.
+  // Also cancels the backend reminder if this is the daily reminder (id == 101).
   Future<void> cancelNotification(int id) async {
+    // ── Cancel on notification microservice (daily reminder only) ─────────
+    if (id == 101) {
+      final userId = ApiService().userId;
+      if (userId != null) {
+        try {
+          await ApiService().cancelDailyReminder(userId);
+          debugPrint('✅ Reminder cancelled on notification-service');
+        } catch (e) {
+          debugPrint('⚠️  Could not cancel reminder on notification-service: $e');
+        }
+      }
+    }
+
     if (kIsWeb) {
       _webTimers[id]?.cancel();
       _webTimers.remove(id);
