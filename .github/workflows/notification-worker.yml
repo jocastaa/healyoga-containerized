@@ -1,0 +1,25 @@
+name: Notification Worker
+
+on:
+  schedule:
+    - cron: '* * * * *'  # every minute — GitHub minimum is actually every 5 min
+    - cron: '*/5 * * * *' # use this instead
+  workflow_dispatch: # allows manual trigger
+
+jobs:
+  run-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: npm install
+        working-directory: notification-service
+      - name: Run worker
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node src/worker.js
+        working-directory: notification-service

@@ -4,6 +4,7 @@ import 'edit_profile_screen.dart';
 import 'auth_gate.dart';
 import '../services/global_audio_service.dart';
 import '../services/api_service.dart';
+import '../services/realtime_notification_service.dart';
 import '../l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -120,6 +121,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Logout via ApiService then navigate to AuthGate ───────────────────────
   Future<void> _logout() async {
     await GlobalAudioService.playClickSound();
+    RealtimeNotificationService().unsubscribe();
     await ApiService().logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

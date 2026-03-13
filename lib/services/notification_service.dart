@@ -125,8 +125,6 @@ class NotificationService {
         importance: Importance.max,
         priority: Priority.high,
         showWhen: true,
-        icon: 'zencore_icon',
-        largeIcon: DrawableResourceAndroidBitmap('zencore_icon'),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'progress_screen.dart';
 import 'profile_screen.dart';
 import 'level_selection_screen.dart';
 import '../services/global_audio_service.dart';
+import '../services/realtime_notification_service.dart';
 import '../l10n/app_localizations.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -28,6 +29,13 @@ class _MainNavigationScreenState
       const ProgressScreen(),
       const ProfileScreen(),
     ];
+    RealtimeNotificationService().subscribe();
+  }
+
+  @override
+  void dispose() {
+    RealtimeNotificationService().unsubscribe();
+    super.dispose();
   }
 
   bool get isWeb => MediaQuery.of(context).size.width > 600;
@@ -73,7 +81,7 @@ class _MainNavigationScreenState
             constraints: const BoxConstraints(maxWidth: 1280),
             child: Row(
               mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
+              MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
@@ -85,7 +93,7 @@ class _MainNavigationScreenState
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
                         color:
-                            const Color(0xFF1F3D3A),
+                        const Color(0xFF1F3D3A),
                       ),
                     ),
                     Text(
@@ -94,7 +102,7 @@ class _MainNavigationScreenState
                         fontSize: 28,
                         fontWeight: FontWeight.w400,
                         color:
-                            const Color(0xFF40E0D0),
+                        const Color(0xFF40E0D0),
                       ),
                     ),
                   ],
@@ -121,7 +129,7 @@ class _MainNavigationScreenState
       onTap: () => setState(() => _selectedIndex = index),
       child: Padding(
         padding:
-            const EdgeInsets.symmetric(horizontal: 20),
+        const EdgeInsets.symmetric(horizontal: 20),
         child: Text(
           label,
           style: GoogleFonts.poppins(
@@ -153,7 +161,7 @@ class _MainNavigationScreenState
           boxShadow: [
             BoxShadow(
               color:
-                  Colors.black.withOpacity(0.1),
+              Colors.black.withOpacity(0.1),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -162,7 +170,7 @@ class _MainNavigationScreenState
         child: SafeArea(
           child: Padding(
             padding:
-                const EdgeInsets.symmetric(vertical: 6),
+            const EdgeInsets.symmetric(vertical: 6),
             child: Row(
               children: [
                 Expanded(
@@ -202,21 +210,21 @@ class _MainNavigationScreenState
       },
       child: Container(
         padding:
-            const EdgeInsets.symmetric(vertical: 6),
+        const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
           borderRadius:
-              BorderRadius.circular(16),
+          BorderRadius.circular(16),
           boxShadow: isSelected
               ? [
-                  BoxShadow(
-                    color: Colors.white
-                        .withOpacity(0.2),
-                    blurRadius: 30,
-                    spreadRadius: 1,
-                    offset:
-                        const Offset(0, 5),
-                  ),
-                ]
+            BoxShadow(
+              color: Colors.white
+                  .withOpacity(0.2),
+              blurRadius: 30,
+              spreadRadius: 1,
+              offset:
+              const Offset(0, 5),
+            ),
+          ]
               : null,
         ),
         child: Column(
@@ -234,9 +242,9 @@ class _MainNavigationScreenState
               label,
               maxLines: 1,
               overflow:
-                  TextOverflow.ellipsis,
+              TextOverflow.ellipsis,
               textAlign:
-                  TextAlign.center,
+              TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 10,
                 fontWeight: isSelected
@@ -244,7 +252,7 @@ class _MainNavigationScreenState
                     : FontWeight.w500,
                 color: isSelected
                     ? const Color(
-                        0xFF000000)
+                    0xFF000000)
                     : Colors.grey[800],
               ),
             ),
