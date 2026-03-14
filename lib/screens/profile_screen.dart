@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'edit_profile_screen.dart';
 import 'auth_gate.dart';
 import '../services/global_audio_service.dart';
@@ -17,7 +16,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
 
-  final supabase = Supabase.instance.client;
 
   static const background = Color(0xFFEAF6F4);
   static const turquoise = Color(0xFF40E0D0);
@@ -62,61 +60,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ── Stats still read from Supabase directly (no stats microservice yet) ───
-  Future<void> _loadStats() async {
-    final userId = ApiService().userId;
-    if (userId == null) return;
+Future<void> _loadStats() async {
+  final userId = ApiService().userId;
+  if (userId == null) return;
 
-    try {
-      final completedSessions = await supabase
-          .from('session_completions')
-          .select('id')
-          .eq('user_id', userId);
+  try {
+    final stats = await ApiService().getUserStats(userId);
 
-      int sessionCount = completedSessions.length;
+    if (!mounted) return;
 
-      final activities = await supabase
-          .from('pose_activity')
-          .select('duration_seconds, completed_at')
-          .eq('user_id', userId)
-          .order('completed_at', ascending: false);
-
-      int totalSeconds = 0;
-      final Map<String, bool> activityDays = {};
-
-      for (final row in activities) {
-        totalSeconds += (row['duration_seconds'] ?? 0) as int;
-        final raw = DateTime.parse(row['completed_at']).toLocal();
-        final date = DateTime(raw.year, raw.month, raw.day);
-        final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-        activityDays[key] = true;
-      }
-
-      final totalMinutes = (totalSeconds / 60).ceil();
-
-      int streak = 0;
-      DateTime checkDate = DateTime.now();
-      while (true) {
-        final date = DateTime(checkDate.year, checkDate.month, checkDate.day);
-        final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-        if (activityDays[key] == true) {
-          streak++;
-          checkDate = checkDate.subtract(const Duration(days: 1));
-        } else {
-          break;
-        }
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _totalSessions = sessionCount;
-        _totalMinutes = totalMinutes;
-        _dailyStreak = streak;
-        _weeklyStreak = 0;
-      });
-    } catch (e) {
-      debugPrint('❌ Failed to load stats: $e');
-    }
+    setState(() {
+      _totalSessions = stats['totalSessions'] ?? 0;
+      _totalMinutes = stats['totalMinutes'] ?? 0;
+      _dailyStreak = stats['dailyStreak'] ?? 0;
+      _weeklyStreak = stats['weeklyStreak'] ?? 0;
+    });
+  } catch (e) {
+    debugPrint('❌ Failed to load stats: $e');
   }
+}
 
   // ── Logout via ApiService then navigate to AuthGate ───────────────────────
   Future<void> _logout() async {

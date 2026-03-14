@@ -301,6 +301,10 @@ Future<Map<String, dynamic>> post(
 ) async {
   return await _post(path, body);
 }
+
+Future<Map<String, dynamic>> getUserStats(String userId) async {
+  return await _get('/progress/$userId/stats');
+}
 }
 
 class ApiException implements Exception {
