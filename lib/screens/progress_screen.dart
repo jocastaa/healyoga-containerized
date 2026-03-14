@@ -16,6 +16,8 @@ class ProgressScreen extends StatefulWidget {
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
+  final ApiService api = ApiService();
+  final ProgressService progressService = ProgressService();
 
   bool get isWeb => MediaQuery.of(context).size.width > 600;
 
@@ -42,127 +44,111 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _loadProgressData();
   }
 
-Future<void> _loadProgressData() async {
-  setState(() {
-    _isLoading = true;
-    _error = null;
-  });
-
-  try {
-    final userId = ApiService().userId;
-    if (userId == null) throw Exception("User not authenticated");
-
-    print("🔍 Loading progress for user: $userId");
-
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final weekStart = today.subtract(Duration(days: today.weekday - 1));
-
-    /// -----------------------------
-    /// 1️⃣ Load Pose Activities
-    /// -----------------------------
-    final poseResponse =
-        await ApiService().get('/poses/$userId/activity');
-
-    final List<dynamic> poseActivities =
-        poseResponse is List
-            ? poseResponse
-            : (poseResponse['activities'] ??
-               poseResponse['poses'] ??
-               poseResponse['data'] ??
-               []);
-
-    print("📊 Pose activities found: ${poseActivities.length}");
-
-    _activityDays.clear();
-    _dailyMinutes.clear();
-
-    int totalSeconds = 0;
-    int weekSeconds = 0;
-
-    for (var row in poseActivities) {
-      final raw = DateTime.parse(
-        row['completed_at'] ?? row['created_at'],
-      ).toLocal();
-
-      final date = DateTime(raw.year, raw.month, raw.day);
-      final key = DateFormat('yyyy-MM-dd').format(date);
-
-      _activityDays[key] = true;
-
-      final durationSeconds = (row['duration_seconds'] ?? 0) as int;
-      final minutes = (durationSeconds / 60).ceil();
-
-      _dailyMinutes[key] = (_dailyMinutes[key] ?? 0) + minutes;
-
-      totalSeconds += durationSeconds;
-
-      if (!date.isBefore(weekStart)) {
-        weekSeconds += durationSeconds;
-      }
-    }
-
-    /// -----------------------------
-    /// 2️⃣ Load Progress Service
-    /// -----------------------------
-    final progress =
-        await ProgressService().getUserProgress(userId);
-
-    final sessionCount = progress.totalSessionsCompleted;
-
-    print("📊 Sessions completed: $sessionCount");
-
-    /// -----------------------------
-    /// 3️⃣ Load Wellness Reflections
-    /// -----------------------------
-    final reflectionsResponse =
-        await ApiService().get('/progress/$userId/reflections');
-
-    final reflections =
-        reflectionsResponse['reflections'] ?? [];
-
-    _reflections = List<Map<String, dynamic>>.from(reflections);
-
-    final hasCheckInThisWeek = _reflections.any((r) {
-      final date = DateTime.parse(r['created_at']);
-      return !date.isBefore(weekStart);
+  Future<void> _loadProgressData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
     });
 
-    /// -----------------------------
-    /// 4️⃣ Convert Time
-    /// -----------------------------
-    final totalMinutesConverted = (totalSeconds / 60).ceil();
-    final weekMinutesConverted = (weekSeconds / 60).ceil();
+    try {
+      final userId = api.userId;
+if (userId == null) throw Exception('User not authenticated');
 
-    print("📊 Total minutes: $totalMinutesConverted");
-    print("📊 Weekly minutes: $weekMinutesConverted");
+      print('🔍 DEBUG: Loading progress for user: $userId');
 
-    /// -----------------------------
-    /// 5️⃣ Update UI
-    /// -----------------------------
-    if (!mounted) return;
+    final poseActivitiesResponse =
+    await api.get('/poses/$userId/activity');
 
-    setState(() {
+      print('🔍 DEBUG: Found ${poseActivitiesResponse['activities'].length} pose activities');
+      print('🔍 DEBUG: First few records: ${(poseActivitiesResponse['activities'] as List).take(3).toList()}');
+      // Used to infer sessions
+      final Map<String, List<DateTime>> grouped = {};
+
+      int weekSeconds = 0;
+      int totalSeconds = 0;
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final weekStart = today.subtract(Duration(days: today.weekday - 1));
+
+      print('🔍 DEBUG: Week starts on: ${DateFormat('yyyy-MM-dd').format(weekStart)}');
+
+      // Process pose activities
+      _activityDays.clear();
+      _dailyMinutes.clear(); // ADD THIS
+
+      for (var row in poseActivitiesResponse['activities'])  {
+        final raw = DateTime.parse(row['completed_at']).toLocal();
+        final date = DateTime(raw.year, raw.month, raw.day);
+        final key = DateFormat('yyyy-MM-dd').format(date);
+        _activityDays[key] = true;
+
+        final durationSeconds = (row['duration_seconds'] ?? 0) as int;
+        final minutes = (durationSeconds / 60).ceil();
+        _dailyMinutes[key] = (_dailyMinutes[key] ?? 0) + minutes;
+
+        final level = row['session_level'] as String;
+        final completedAt = raw;
+
+        grouped.putIfAbsent(level, () => []).add(completedAt);
+
+        totalSeconds += durationSeconds;
+
+        if (!date.isBefore(weekStart)) {
+          weekSeconds += durationSeconds;
+          print('🔍 DEBUG: Adding ${durationSeconds}s from $key to weekly total');
+        }
+      }
+
+      // NEW: Count actual completed sessions
+final progress = await progressService.getUserProgress(userId);
+
+int sessionCount =
+    progress.beginnerSessionsCompleted +
+    progress.intermediateSessionsCompleted +
+    progress.advancedSessionsCompleted;
+
+
+      print('🔍 DEBUG: Completed sessions: $sessionCount');
+
+      final totalMinutesConverted = (totalSeconds / 60).ceil();
+      final weekMinutesConverted = (weekSeconds / 60).ceil();
+
+      print('🔍 DEBUG: Total sessions: $sessionCount');
+      print('🔍 DEBUG: Total seconds: $totalSeconds, Minutes: $totalMinutesConverted');
+      print('🔍 DEBUG: Weekly seconds: $weekSeconds, Minutes: $weekMinutesConverted');
+      print('🔍 DEBUG: Activity days: ${_activityDays.keys.toList()}');
+
+      // Load wellness reflections
+final reflectionsResponse =
+    await api.get('/progress/$userId/reflections');
+
+      if (!mounted) return;
+
+      setState(() {
+_reflections = List<Map<String, dynamic>>.from(
+    reflectionsResponse['reflections'] ?? []);      });
+
+      _hasCheckInThisWeek = _reflections.any((r) {
+        final date = DateTime.parse(r['created_at']);
+        return !date.isBefore(weekStart);
+      });
+
       _currentStreak = _calculateStreak();
       _weeklyMinutes = weekMinutesConverted;
-      _totalMinutes = totalMinutesConverted;
       _totalSessions = sessionCount;
-      _hasCheckInThisWeek = hasCheckInThisWeek;
-      _isLoading = false;
-    });
+      _totalMinutes = totalMinutesConverted;
 
-  } catch (e, stack) {
-    print("❌ PROGRESS ERROR: $e");
-    print(stack);
-
-    if (!mounted) return;
-
-    setState(() {
-      _error = e.toString();
-      _isLoading = false;
-    });
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
   }
-}
 
   int _calculateStreak() {
     if (_activityDays.isEmpty) return 0;
@@ -1154,10 +1140,10 @@ Future<void> _loadProgressData() async {
     if (!mounted) return; //
 
     try {
-final userId = ApiService().userId;
+      final userId = api.userId;
       if (userId == null) return;
 
-      await ApiService().post('/progress/$userId/reflections', {
+      await api.post('/progress/$userId/reflections', {
         'user_id': userId,
         'feedback_week': 1,
         'fitness_improvement': saved['bodyComfort'],

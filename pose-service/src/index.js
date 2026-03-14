@@ -88,7 +88,7 @@ app.post('/poses/:userId/activity', validateUserId, validatePoseActivity, async 
       pose_name: poseName.trim(),
       duration_seconds: Math.round(Number(durationSeconds)),
       session_level: sessionLevel,
-      recorded_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
     });
     if (error) throw error;
     return res.json({
@@ -96,6 +96,38 @@ app.post('/poses/:userId/activity', validateUserId, validatePoseActivity, async 
       durationSeconds: Math.round(Number(durationSeconds)), sessionLevel,
     });
   } catch (err) { next(err); }
+});
+
+
+// ─── GET /poses/:userId/activity ─────────────────────────────────────────────
+app.get('/poses/:userId/activity', validateUserId, async (req, res, next) => {
+  const { userId } = req.params;
+
+  try {
+    const { data, error } = await supabase
+      .from('pose_activity')
+      .select('*')
+      .eq('user_id', userId)
+      .order('completed_at', { ascending: false });
+
+    if (error) throw error;
+
+    const activities = (data || []).map(row => ({
+      pose_id: row.pose_id,
+      pose_name: row.pose_name,
+      duration_seconds: row.duration_seconds,
+      session_level: row.session_level,
+      completed_at: row.completed_at
+    }));
+
+    res.json({
+      userId,
+      activities
+    });
+
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ─── GET /poses/:userId/activity/summary ─────────────────────────────────────
@@ -107,7 +139,7 @@ app.get('/poses/:userId/activity/summary', validateUserId, async (req, res, next
       .from('pose_activity')
       .select('*')
       .eq('user_id', userId)
-      .order('recorded_at', { ascending: false });
+      .order('completed_at', { ascending: false });
 
     if (error) throw error;
 
@@ -117,7 +149,7 @@ app.get('/poses/:userId/activity/summary', validateUserId, async (req, res, next
       pose_name: row.pose_name,
       duration_seconds: row.duration_seconds,
       session_level: row.session_level,
-      completed_at: row.recorded_at
+      completed_at: row.completed_at
     }));
 
     res.json({
