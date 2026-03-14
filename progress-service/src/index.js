@@ -34,12 +34,15 @@ app.get('/progress/:userId', validateUserId, async (req, res, next) => {
 
     // Auto-create fresh record if missing
     if (!data) {
-      const fresh = {
-        user_id: userId,
-        beginner_sessions: 0, intermediate_sessions: 0, advanced_sessions: 0,
-        intermediate_unlocked: false, advanced_unlocked: false,
-        current_level: 'Beginner',
-      };
+ const fresh = {
+  user_id: userId,
+  beginner_sessions_completed: 0,
+  intermediate_sessions_completed: 0,
+  advanced_sessions_completed: 0,
+  intermediate_unlocked: false,
+  advanced_unlocked: false,
+  current_level: 'Beginner',
+};
       const { error: insertError } = await supabase.from('user_progress').insert(fresh);
       if (insertError) throw insertError;
       data = fresh;
@@ -64,11 +67,11 @@ app.post('/progress/:userId/complete', validateUserId, validateCompleteSession, 
     if (level === 'Advanced' && !data.advanced_unlocked)
       return res.status(403).json({ error: 'Advanced level is not yet unlocked.' });
 
-    const fieldMap = {
-      Beginner: 'beginner_sessions',
-      Intermediate: 'intermediate_sessions',
-      Advanced: 'advanced_sessions',
-    };
+const fieldMap = {
+  Beginner: 'beginner_sessions_completed',
+  Intermediate: 'intermediate_sessions_completed',
+  Advanced: 'advanced_sessions_completed',
+};
     const field = fieldMap[level];
     const newCount = (data[field] || 0) + 1;
 
