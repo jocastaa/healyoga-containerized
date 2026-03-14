@@ -187,7 +187,7 @@ app.put('/auth/profile/:userId', validateUserId, validateProfileUpdate, async (r
 });
 
 // GET /progress/:userId/stats
-app.get('/progress/:userId/stats', validateUserId, async (req, res, next) => {
+app.get('/progress/:userId/stats', async (req, res, next) => {
   try {
     const userId = req.params.userId;
 
@@ -202,38 +202,24 @@ app.get('/progress/:userId/stats', validateUserId, async (req, res, next) => {
       .eq('user_id', userId)
       .order('completed_at', { ascending: false });
 
-    const totalSessions = sessions?.length ?? 0;
-
     let totalSeconds = 0;
     const activityDays = {};
 
     for (const row of activities ?? []) {
       totalSeconds += row.duration_seconds || 0;
 
-      const raw = new Date(row.completed_at);
-      const date = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
-      const key = date.toISOString().split('T')[0];
-
+      const d = new Date(row.completed_at);
+      const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
       activityDays[key] = true;
     }
 
     const totalMinutes = Math.ceil(totalSeconds / 60);
 
-    let streak = 0;
-    let checkDate = new Date();
-
-    while (true) {
-      const key = checkDate.toISOString().split('T')[0];
-      if (activityDays[key]) {
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else break;
-    }
-
     res.json({
-      totalSessions,
+      totalSessions: sessions?.length ?? 0,
       totalMinutes,
-      dailyStreak: streak
+      dailyStreak: 0,
+      weeklyStreak: 0
     });
 
   } catch (err) {
