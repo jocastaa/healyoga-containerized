@@ -112,23 +112,34 @@ app.post('/poses/:userId/complete', validateUserId, validatePoseComplete, async 
 app.post('/poses/:userId/activity', validateUserId, validatePoseActivity, async (req, res, next) => {
   const { userId } = req.params;
   const { poseId, poseName, durationSeconds, sessionLevel } = req.body;
+
   try {
+    const now = new Date();
+
     const { error } = await supabase.from('pose_activity').insert({
       user_id: userId,
       pose_id: poseId.trim(),
       pose_name: poseName.trim(),
       duration_seconds: Math.round(Number(durationSeconds)),
       session_level: sessionLevel,
-      completed_at: new Date().toISOString(),
-      activity_date: now.toISOString().split('T')[0] // YYYY-MM-DD
+      completed_at: now.toISOString(),
+      activity_date: now.toISOString().split('T')[0]
+    });
 
-    });
     if (error) throw error;
+
     return res.json({
-      success: true, userId, poseId, poseName,
-      durationSeconds: Math.round(Number(durationSeconds)), sessionLevel,
+      success: true,
+      userId,
+      poseId,
+      poseName,
+      durationSeconds,
+      sessionLevel,
     });
-  } catch (err) { next(err); }
+
+  } catch (err) {
+    next(err);
+  }
 });
 
 
