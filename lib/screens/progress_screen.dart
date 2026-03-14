@@ -54,11 +54,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
       print('🔍 DEBUG: Loading progress for user: $userId');
 
-  final poseActivitiesResponse =
-    await ApiService().get('/poses/$userId/activity/summary');
+final poseActivitiesResponse =
+    await ApiService().get('/poses/$userId/activity');
 
-  final List<dynamic> poseActivities =
-    poseActivitiesResponse['poses'] ?? [];
+final List<dynamic> poseActivities =
+    poseActivitiesResponse is List
+        ? poseActivitiesResponse
+        : (poseActivitiesResponse['activities'] ??
+           poseActivitiesResponse['poses'] ??
+           poseActivitiesResponse['data'] ??
+           []);
 
     print('🔍 DEBUG: Found ${poseActivities.length} pose activities');
 print('🔍 DEBUG: First few records: ${poseActivities.take(3).toList()}');
@@ -80,7 +85,9 @@ print('🔍 DEBUG: First few records: ${poseActivities.take(3).toList()}');
       _dailyMinutes.clear(); // ADD THIS
 
       for (var row in poseActivities) {
-final raw = DateTime.parse(row['completed_at']).toLocal();
+final raw = DateTime.parse(
+  row['completed_at'] ?? row['created_at']
+).toLocal();
 final date = DateTime(raw.year, raw.month, raw.day);
 final key = DateFormat('yyyy-MM-dd').format(date);
         _activityDays[key] = true;
@@ -120,13 +127,11 @@ int sessionCount =
 final reflectionsResponse =
     await ApiService().get('/progress/$userId/reflections');
 
-final reflections =
+_reflections =
     List<Map<String, dynamic>>.from(reflectionsResponse['reflections']);
-
       if (!mounted) return;
 
 setState(() {
-  _reflections = reflections;
   _hasCheckInThisWeek = _reflections.any((r) {
     final date = DateTime.parse(r['created_at']);
     return !date.isBefore(weekStart);
