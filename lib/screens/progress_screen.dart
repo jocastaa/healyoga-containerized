@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 import 'dart:ui' as ui;
 import '../services/global_audio_service.dart';
 import '../l10n/app_localizations.dart';
+import '../services/api_service.dart';
+import '../services/progress_service.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -15,7 +16,6 @@ class ProgressScreen extends StatefulWidget {
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  final supabase = Supabase.instance.client;
 
   bool get isWeb => MediaQuery.of(context).size.width > 600;
 
@@ -49,19 +49,19 @@ class _ProgressScreenState extends State<ProgressScreen> {
     });
 
     try {
-      final userId = supabase.auth.currentUser?.id;
+      final userId = ApiService().userId;
       if (userId == null) throw Exception('User not authenticated');
 
       print('🔍 DEBUG: Loading progress for user: $userId');
 
-      final poseActivitiesResponse = await supabase
-          .from('pose_activity')
-          .select()
-          .eq('user_id', userId)
-          .order('completed_at', ascending: false);
+  final poseActivitiesResponse =
+    await ApiService().get('/poses/$userId/activity/summary');
 
-      print('🔍 DEBUG: Found ${poseActivitiesResponse.length} pose activities');
-      print('🔍 DEBUG: First few records: ${poseActivitiesResponse.take(3).toList()}');
+  final List<dynamic> poseActivities =
+    poseActivitiesResponse['poses'] ?? [];
+
+    print('🔍 DEBUG: Found ${poseActivities.length} pose activities');
+print('🔍 DEBUG: First few records: ${poseActivities.take(3).toList()}');
 
       // Used to infer sessions
       final Map<String, List<DateTime>> grouped = {};
@@ -79,21 +79,21 @@ class _ProgressScreenState extends State<ProgressScreen> {
       _activityDays.clear();
       _dailyMinutes.clear(); // ADD THIS
 
-      for (var row in poseActivitiesResponse) {
-        final raw = DateTime.parse(row['completed_at']).toLocal();
-        final date = DateTime(raw.year, raw.month, raw.day);
-        final key = DateFormat('yyyy-MM-dd').format(date);
+      for (var row in poseActivities) {
+final raw = DateTime.parse(row['completed_at']).toLocal();
+final date = DateTime(raw.year, raw.month, raw.day);
+final key = DateFormat('yyyy-MM-dd').format(date);
         _activityDays[key] = true;
 
-        final durationSeconds = (row['duration_seconds'] ?? 0) as int;
-        final minutes = (durationSeconds / 60).ceil();
-        _dailyMinutes[key] = (_dailyMinutes[key] ?? 0) + minutes;
+final durationSeconds = (row['duration_seconds'] ?? 0) as int;
+final minutes = (durationSeconds / 60).ceil();
 
-        final level = row['session_level'] as String;
-        final completedAt = raw;
+_dailyMinutes[key] = (_dailyMinutes[key] ?? 0) + minutes;
 
-        grouped.putIfAbsent(level, () => []).add(completedAt);
+final level = row['session_level'] as String;
+final completedAt = raw;
 
+grouped.putIfAbsent(level, () => []).add(completedAt);
         totalSeconds += durationSeconds;
 
         if (!date.isBefore(weekStart)) {
@@ -103,14 +103,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
       }
 
       // NEW: Count actual completed sessions
-      final sessionsResponse = await supabase
-          .from('session_completions')
-          .select('id')
-          .eq('user_id', userId);
+final progress =
+    await ProgressService().getUserProgress(userId);
 
-      int sessionCount = sessionsResponse.length;
-      print('🔍 DEBUG: Completed sessions: $sessionCount');
-
+int sessionCount =
+    progress.totalSessionsCompleted;
       final totalMinutesConverted = (totalSeconds / 60).ceil();
       final weekMinutesConverted = (weekSeconds / 60).ceil();
 
@@ -119,29 +116,28 @@ class _ProgressScreenState extends State<ProgressScreen> {
       print('🔍 DEBUG: Weekly seconds: $weekSeconds, Minutes: $weekMinutesConverted');
       print('🔍 DEBUG: Activity days: ${_activityDays.keys.toList()}');
 
-      // Load wellness reflections
-      final reflectionsResponse = await supabase
-          .from('feedback')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false)
-          .limit(10);
+// Load wellness reflections from backend
+final reflectionsResponse =
+    await ApiService().get('/progress/$userId/reflections');
+
+final reflections =
+    List<Map<String, dynamic>>.from(reflectionsResponse['reflections']);
 
       if (!mounted) return;
 
-      setState(() {
-        _reflections = List<Map<String, dynamic>>.from(reflectionsResponse);
-      });
+setState(() {
+  _reflections = reflections;
+  _hasCheckInThisWeek = _reflections.any((r) {
+    final date = DateTime.parse(r['created_at']);
+    return !date.isBefore(weekStart);
+  });
 
-      _hasCheckInThisWeek = _reflections.any((r) {
-        final date = DateTime.parse(r['created_at']);
-        return !date.isBefore(weekStart);
-      });
+  _currentStreak = _calculateStreak();
+  _weeklyMinutes = weekMinutesConverted;
+  _totalSessions = sessionCount;
+  _totalMinutes = totalMinutesConverted;
+});
 
-      _currentStreak = _calculateStreak();
-      _weeklyMinutes = weekMinutesConverted;
-      _totalSessions = sessionCount;
-      _totalMinutes = totalMinutesConverted;
 
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -1144,10 +1140,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
     if (!mounted) return; //
 
     try {
-      final userId = supabase.auth.currentUser?.id;
+final userId = ApiService().userId;
       if (userId == null) return;
 
-      await supabase.from('feedback').insert({
+      await ApiService().post('/progress/$userId/reflections', {
         'user_id': userId,
         'feedback_week': 1,
         'fitness_improvement': saved['bodyComfort'],

@@ -101,27 +101,33 @@ app.post('/poses/:userId/activity', validateUserId, validatePoseActivity, async 
 // ─── GET /poses/:userId/activity/summary ─────────────────────────────────────
 app.get('/poses/:userId/activity/summary', validateUserId, async (req, res, next) => {
   const { userId } = req.params;
+
   try {
     const { data, error } = await supabase
-      .from('pose_activity').select('pose_id, pose_name, duration_seconds, session_level')
-      .eq('user_id', userId);
+      .from('pose_activity')
+      .select('*')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false });
+
     if (error) throw error;
 
-    // Aggregate total seconds per pose
-    const summary = {};
-    for (const row of data) {
-      const key = row.pose_id;
-      if (!summary[key]) {
-        summary[key] = { poseId: row.pose_id, poseName: row.pose_name, sessionLevel: row.session_level, totalSeconds: 0 };
-      }
-      summary[key].totalSeconds += row.duration_seconds;
-    }
-    const result = Object.values(summary).map(p => ({
-      ...p, totalMinutes: Math.round(p.totalSeconds / 60),
+    // Convert database fields to the format expected by Flutter
+    const poses = (data || []).map(row => ({
+      pose_id: row.pose_id,
+      pose_name: row.pose_name,
+      duration_seconds: row.duration_seconds,
+      session_level: row.session_level,
+      completed_at: row.recorded_at
     }));
 
-    return res.json({ userId, poses: result, totalPoses: result.length });
-  } catch (err) { next(err); }
+    res.json({
+      userId,
+      poses
+    });
+
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ─── DELETE /poses/:userId/reset/:sessionLevel ───────────────────────────────

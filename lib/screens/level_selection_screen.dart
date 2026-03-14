@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_progress.dart';
 import '../services/progress_service.dart';
 import '../data/yoga_data_complete.dart';
@@ -49,12 +48,8 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
       // Fetch admin flag from profiles
       bool isAdmin = false;
       try {
-        final profile = await Supabase.instance.client
-            .from('profiles')
-            .select('is_admin')
-            .eq('id', userId)
-            .maybeSingle();
-        isAdmin = profile?['is_admin'] == true;
+final profile = await ApiService().get('/auth/profile/$userId');
+isAdmin = profile['is_admin'] == true;
       } catch (_) {}
 
       setState(() {

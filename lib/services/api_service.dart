@@ -203,6 +203,22 @@ class ApiService {
     });
   }
 
+  Future<void> delete(String path) async {
+  try {
+    final res = await http.delete(
+      Uri.parse('$_baseUrl$path'),
+      headers: _headers,
+    ).timeout(const Duration(seconds: 60));
+
+    if (res.statusCode >= 400) {
+      final data = jsonDecode(res.body);
+      throw ApiException(data['error'] ?? 'Delete request failed');
+    }
+  } catch (e) {
+    throw ApiException('Network error: $e');
+  }
+}
+
   // ─── Notification endpoints ─────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getNotificationSettings(String userId) async {
@@ -246,6 +262,45 @@ class ApiService {
     final data = await _get('/notifications/$userId/logs');
     return (data['logs'] as List?) ?? [];
   }
+
+  // ─── Progress endpoints ─────────────────────────────────────────────
+
+Future<Map<String, dynamic>> getUserProgress(String userId) async {
+  return await _get('/progress/$userId');
+}
+
+Future<Map<String, dynamic>> completeSession({
+  required String userId,
+  required String level,
+}) async {
+  return await _post('/progress/$userId/complete', {
+    'level': level,
+  });
+}
+
+Future<void> unlockLevel({
+  required String userId,
+  required String level,
+}) async {
+  await _post('/progress/$userId/unlock', {
+    'level': level,
+  });
+}
+
+Future<void> resetProgress(String userId) async {
+  await _post('/progress/$userId/reset', {});
+}
+
+  Future<Map<String, dynamic>> get(String path) async {
+  return await _get(path);
+}
+
+Future<Map<String, dynamic>> post(
+  String path,
+  Map<String, dynamic> body,
+) async {
+  return await _post(path, body);
+}
 }
 
 class ApiException implements Exception {
@@ -257,4 +312,7 @@ class ApiException implements Exception {
   @override
   String toString() => message;
 }
+
+
+
 

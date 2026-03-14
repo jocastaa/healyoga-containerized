@@ -150,7 +150,9 @@ app.post('/auth/reset-password', async (req, res, next) => {
 app.get('/auth/profile/:userId', validateUserId, async (req, res, next) => {
   try {
     const { data, error } = await supabase
-      .from('profiles').select('*').eq('id', req.params.userId).maybeSingle();
+      .from('profiles').select('*, is_admin')
+      .eq('id', req.params.userId)
+      .maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Profile not found.' });
     return res.json(data);

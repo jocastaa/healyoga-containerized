@@ -57,18 +57,30 @@ class PoseProgressService {
     }
   }
 
-  Future<void> resetUserPoseProgress(String userId) async {
-    throw UnimplementedError(
-      'No reset endpoint exists yet in pose-service.',
-    );
+   // Reset all poses for a level
+  Future<void> resetLevelPoseProgress(
+    String userId,
+    String sessionLevel,
+  ) async {
+    try {
+      await _api.delete('/poses/$userId/reset/$sessionLevel');
+    } catch (e) {
+      print('Error resetting pose progress: $e');
+      rethrow;
+    }
   }
 
-  Future<void> resetLevelPoseProgress(
-      String userId,
-      String sessionLevel,
-      ) async {
-    throw UnimplementedError(
-      'No reset endpoint exists yet in pose-service.',
-    );
+  // Reset all levels
+  Future<void> resetUserPoseProgress(String userId) async {
+    try {
+      const levels = ['Beginner', 'Intermediate', 'Advanced'];
+
+      for (final level in levels) {
+        await _api.delete('/poses/$userId/reset/$level');
+      }
+    } catch (e) {
+      print('Error resetting all pose progress: $e');
+      rethrow;
+    }
   }
 }

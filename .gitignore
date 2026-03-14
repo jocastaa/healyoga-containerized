@@ -2706,3 +2706,52 @@ build/volume_controller/tmp/kotlin-classes/debug/com/kurenai7968/volume_controll
 build/volume_controller/tmp/kotlin-classes/debug/com/kurenai7968/volume_controller/VolumeControllerPlugin.class
 build/volume_controller/tmp/kotlin-classes/debug/com/kurenai7968/volume_controller/VolumeListener.class
 build/volume_controller/tmp/kotlin-classes/debug/META-INF/volume_controller_debug.kotlin_module
+# Flutter
+build/
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+
+# Android
+android/.gradle/
+android/app/build/
+
+# iOS
+ios/Pods/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# macOS
+macos/Flutter/ephemeral/
+
+# Web
+build/web/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/
+
+# Node.js
+node_modules/
+dist/
+coverage/
+.env
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+.dart_tool/package_config.json
+.dart_tool/package_graph.json

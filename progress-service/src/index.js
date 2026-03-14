@@ -121,6 +121,58 @@ app.post('/progress/:userId/reset', validateUserId, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+
+// ─── GET /progress/:userId/reflections ───────────────────────────
+app.get('/progress/:userId/reflections', validateUserId, async (req, res, next) => {
+  const { userId } = req.params;
+
+  try {
+    const { data, error } = await supabase
+      .from('feedback')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+
+    res.json({
+      userId,
+      reflections: data
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /progress/:userId/reflections ───────────────────────────
+app.post('/progress/:userId/reflections', validateUserId, async (req, res, next) => {
+  const { userId } = req.params;
+
+  try {
+    const { error } = await supabase
+      .from('feedback')
+      .insert({
+        user_id: userId,
+        ...req.body,
+        created_at: new Date().toISOString()
+      });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      userId
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;

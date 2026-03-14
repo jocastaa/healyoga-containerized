@@ -14,6 +14,7 @@ import '../services/simple_pin_dialog.dart';
 import '../services/simple_pin_service.dart';
 import '../utils/yoga_localization_helper.dart';
 import '../services/api_service.dart';
+import '../services/progress_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants  (mirrors pose_detail_screen.dart)
@@ -346,12 +347,17 @@ class _FullSessionScreenState extends State<FullSessionScreen> {
     }
   }
 
-  Future<void> _saveSession() async {
-    final uid = ApiService().userId;
-    if (uid == null) return;
+Future<void> _saveSession() async {
+  final uid = ApiService().userId;
+  if (uid == null) return;
 
-    debugPrint('ℹ️ Session completion not yet migrated to API for user $uid');
+  try {
+await ProgressService().completeSession(uid, widget.session.levelKey[0].toUpperCase() + widget.session.levelKey.substring(1));
+    debugPrint('✅ Session recorded for level ${widget.session.levelKey[0].toUpperCase() + widget.session.levelKey.substring(1)}');
+  } catch (e) {
+    debugPrint('❌ Failed to record session: $e');
   }
+}
 
   // ─────────────────────────────────────────────────────────────────────────
   // Dialogs

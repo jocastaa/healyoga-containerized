@@ -59,7 +59,7 @@
     },
     {
       "name": "http",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "dependencies": [
         "async",
         "http_parser",
@@ -200,7 +200,7 @@
     },
     {
       "name": "audioplayers",
-      "version": "6.5.1",
+      "version": "6.6.0",
       "dependencies": [
         "audioplayers_android",
         "audioplayers_darwin",
@@ -450,7 +450,7 @@
     },
     {
       "name": "crypto",
-      "version": "3.0.6",
+      "version": "3.0.7",
       "dependencies": [
         "typed_data"
       ]
@@ -483,7 +483,7 @@
     },
     {
       "name": "video_player_android",
-      "version": "2.9.1",
+      "version": "2.9.4",
       "dependencies": [
         "flutter",
         "video_player_platform_interface"
@@ -543,9 +543,8 @@
     },
     {
       "name": "archive",
-      "version": "4.0.7",
+      "version": "4.0.9",
       "dependencies": [
-        "crypto",
         "path",
         "posix"
       ]
@@ -609,12 +608,10 @@
     },
     {
       "name": "uuid",
-      "version": "4.5.1",
+      "version": "4.5.3",
       "dependencies": [
         "crypto",
-        "fixnum",
-        "meta",
-        "sprintf"
+        "fixnum"
       ]
     },
     {
@@ -632,7 +629,7 @@
     },
     {
       "name": "audioplayers_windows",
-      "version": "4.2.1",
+      "version": "4.3.0",
       "dependencies": [
         "audioplayers_platform_interface",
         "flutter"
@@ -640,7 +637,7 @@
     },
     {
       "name": "audioplayers_web",
-      "version": "5.1.1",
+      "version": "5.2.0",
       "dependencies": [
         "audioplayers_platform_interface",
         "flutter",
@@ -668,7 +665,7 @@
     },
     {
       "name": "audioplayers_darwin",
-      "version": "6.3.0",
+      "version": "6.4.0",
       "dependencies": [
         "audioplayers_platform_interface",
         "flutter"
@@ -743,7 +740,7 @@
     },
     {
       "name": "image_picker_android",
-      "version": "0.8.13+13",
+      "version": "0.8.13+14",
       "dependencies": [
         "flutter",
         "flutter_plugin_android_lifecycle",
@@ -835,7 +832,7 @@
     },
     {
       "name": "source_span",
-      "version": "1.10.1",
+      "version": "1.10.2",
       "dependencies": [
         "collection",
         "path",
@@ -881,12 +878,12 @@
     },
     {
       "name": "ffi",
-      "version": "2.1.5",
+      "version": "2.2.0",
       "dependencies": []
     },
     {
       "name": "dbus",
-      "version": "0.7.11",
+      "version": "0.7.12",
       "dependencies": [
         "args",
         "ffi",
@@ -926,7 +923,7 @@
     },
     {
       "name": "path_provider_foundation",
-      "version": "2.4.3",
+      "version": "2.5.1",
       "dependencies": [
         "flutter",
         "path_provider_platform_interface"
@@ -934,7 +931,7 @@
     },
     {
       "name": "path_provider_android",
-      "version": "2.2.20",
+      "version": "2.2.22",
       "dependencies": [
         "flutter",
         "path_provider_platform_interface"
@@ -957,7 +954,7 @@
     },
     {
       "name": "posix",
-      "version": "6.0.3",
+      "version": "6.5.0",
       "dependencies": [
         "ffi",
         "meta",
@@ -1008,7 +1005,7 @@
     },
     {
       "name": "shared_preferences_foundation",
-      "version": "2.5.5",
+      "version": "2.5.6",
       "dependencies": [
         "flutter",
         "shared_preferences_platform_interface"
@@ -1016,7 +1013,7 @@
     },
     {
       "name": "shared_preferences_android",
-      "version": "2.4.15",
+      "version": "2.4.21",
       "dependencies": [
         "flutter",
         "shared_preferences_platform_interface"
@@ -1024,7 +1021,7 @@
     },
     {
       "name": "url_launcher_windows",
-      "version": "3.1.4",
+      "version": "3.1.5",
       "dependencies": [
         "flutter",
         "url_launcher_platform_interface"
@@ -1050,7 +1047,7 @@
     },
     {
       "name": "url_launcher_macos",
-      "version": "3.2.4",
+      "version": "3.2.5",
       "dependencies": [
         "flutter",
         "url_launcher_platform_interface"
@@ -1058,7 +1055,7 @@
     },
     {
       "name": "url_launcher_linux",
-      "version": "3.2.1",
+      "version": "3.2.2",
       "dependencies": [
         "flutter",
         "url_launcher_platform_interface"
@@ -1066,7 +1063,7 @@
     },
     {
       "name": "url_launcher_ios",
-      "version": "6.3.5",
+      "version": "6.3.6",
       "dependencies": [
         "flutter",
         "url_launcher_platform_interface"
@@ -1074,7 +1071,7 @@
     },
     {
       "name": "url_launcher_android",
-      "version": "6.3.24",
+      "version": "6.3.28",
       "dependencies": [
         "flutter",
         "url_launcher_platform_interface"
@@ -1178,11 +1175,6 @@
       "dependencies": []
     },
     {
-      "name": "sprintf",
-      "version": "7.0.0",
-      "dependencies": []
-    },
-    {
       "name": "file_selector_windows",
       "version": "0.9.3+5",
       "dependencies": [
@@ -1203,7 +1195,7 @@
     },
     {
       "name": "cross_file",
-      "version": "0.3.5+1",
+      "version": "0.3.5+2",
       "dependencies": [
         "meta",
         "web"
@@ -1281,7 +1273,7 @@
     },
     {
       "name": "dart_jsonwebtoken",
-      "version": "3.3.1",
+      "version": "3.3.2",
       "dependencies": [
         "clock",
         "convert",
@@ -1305,7 +1297,7 @@
     },
     {
       "name": "petitparser",
-      "version": "7.0.1",
+      "version": "7.0.2",
       "dependencies": [
         "collection",
         "meta"

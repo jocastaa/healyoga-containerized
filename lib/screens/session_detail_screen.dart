@@ -9,7 +9,6 @@ import 'full_session_screen.dart';
 import '../services/global_audio_service.dart';
 import '../utils/yoga_localization_helper.dart';
 import '../l10n/app_localizations.dart';
-import '../services/api_service.dart';
 
 class SessionDetailScreen extends StatefulWidget {
   final YogaSession session;
