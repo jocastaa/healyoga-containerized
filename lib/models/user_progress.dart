@@ -79,9 +79,9 @@ class UserProgress {
       beginnerUnlocked: json['beginner_unlocked'] as bool? ?? true,
       intermediateUnlocked: json['intermediate_unlocked'] as bool? ?? false,
       advancedUnlocked: json['advanced_unlocked'] as bool? ?? false,
-      beginnerSessionsCompleted: json['beginner_sessions_completed'] as int? ?? 0,
-      intermediateSessionsCompleted: json['intermediate_sessions_completed'] as int? ?? 0,
-      advancedSessionsCompleted: json['advanced_sessions_completed'] as int? ?? 0,
+beginnerSessionsCompleted: json['beginner_sessions'] as int? ?? 0,
+intermediateSessionsCompleted: json['intermediate_sessions'] as int? ?? 0,
+advancedSessionsCompleted: json['advanced_sessions'] as int? ?? 0,
       totalSessionsCompleted: json['total_sessions_completed'] as int? ?? 0,
       lastUpdated: json['last_updated'] != null 
           ? DateTime.parse(json['last_updated'] as String)
