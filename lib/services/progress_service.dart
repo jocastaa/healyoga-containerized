@@ -16,19 +16,22 @@ class ProgressService {
   }
 
   // Update progress after completing a session
-  Future<UserProgress> completeSession(String userId, String level) async {
-    try {
-      final data = await _api.post(
-        '/progress/$userId/complete',
-        {'level': level},
-      );
+Future<UserProgress> completeSession(String userId, String level) async {
+  try {
+    final formattedLevel =
+        level[0].toUpperCase() + level.substring(1);
 
-      return UserProgress.fromJson(data);
-    } catch (e) {
-      print('Error completing session: $e');
-      rethrow;
-    }
+    final data = await _api.post(
+      '/progress/$userId/complete',
+      {'level': formattedLevel},
+    );
+
+    return UserProgress.fromJson(data);
+  } catch (e) {
+    print('Error completing session: $e');
+    rethrow;
   }
+}
 
   // Manually unlock a level (admin/testing purposes)
   Future<void> unlockLevel(String userId, String level) async {
