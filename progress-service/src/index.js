@@ -111,6 +111,46 @@ app.post('/progress/:userId/unlock', validateUserId, validateUnlockLevel, async 
   } catch (err) { next(err); }
 });
 
+// ─── GET /progress/:userId/stats ─────────────────────────────────────────
+app.get('/progress/:userId/stats', validateUserId, async (req, res, next) => {
+  const { userId } = req.params;
+
+  try {
+    const { data: sessions } = await supabase
+      .from('session_completions')
+      .select('id')
+      .eq('user_id', userId);
+
+    const { data: activities } = await supabase
+      .from('pose_activity')
+      .select('duration_seconds, completed_at')
+      .eq('user_id', userId);
+
+    let totalSeconds = 0;
+    const activityDays = {};
+
+    for (const row of activities ?? []) {
+      totalSeconds += row.duration_seconds || 0;
+
+      const d = new Date(row.completed_at);
+      const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+      activityDays[key] = true;
+    }
+
+    const totalMinutes = Math.ceil(totalSeconds / 60);
+
+    res.json({
+      totalSessions: sessions?.length ?? 0,
+      totalMinutes,
+      dailyStreak: 0,
+      weeklyStreak: 0
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── POST /progress/:userId/reset ────────────────────────────────────────────
 app.post('/progress/:userId/reset', validateUserId, async (req, res, next) => {
   const { userId } = req.params;
