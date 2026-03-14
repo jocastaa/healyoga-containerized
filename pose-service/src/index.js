@@ -120,6 +120,8 @@ app.post('/poses/:userId/activity', validateUserId, validatePoseActivity, async 
       duration_seconds: Math.round(Number(durationSeconds)),
       session_level: sessionLevel,
       completed_at: new Date().toISOString(),
+      activity_date: now.toISOString().split('T')[0] // YYYY-MM-DD
+
     });
     if (error) throw error;
     return res.json({

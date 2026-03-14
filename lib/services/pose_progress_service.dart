@@ -37,25 +37,24 @@ class PoseProgressService {
     }
   }
 
-  Future<List<String>> getCompletedPosesForLevel(
-      String userId,
-      String sessionLevel,
-      ) async {
-    try {
-      final rows = await _api.getPoseProgress(
-        userId: userId,
-        sessionLevel: sessionLevel,
-      );
+Future<List<String>> getCompletedPosesForLevel(
+  String userId,
+  String sessionLevel,
+) async {
+  try {
+    final data = await _api.get('/poses/$userId/$sessionLevel');
 
-      return rows
-          .where((item) => item['pose_id'] != null)
-          .map((item) => item['pose_id'].toString())
-          .toList();
-    } catch (e) {
-      print('Error getting completed poses: $e');
-      return [];
-    }
+    final poses = data['poses'] as List? ?? [];
+
+    return poses
+        .where((p) => p['is_completed'] == true)
+        .map((p) => p['pose_id'].toString())
+        .toList();
+  } catch (e) {
+    print('Error getting completed poses: $e');
+    return [];
   }
+}
 
    // Reset all poses for a level
   Future<void> resetLevelPoseProgress(

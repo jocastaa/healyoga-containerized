@@ -110,14 +110,39 @@ class _FullSessionScreenState extends State<FullSessionScreen> {
     );
   }
 
-  Future<void> _initSession() async {
+Future<void> _initSession() async {
+  final uid = ApiService().userId;
+  if (uid == null) return;
+
+  try {
+    final completed = await _progressSvc.getCompletedPosesForLevel(
+      uid,
+      widget.session.levelKey,
+    );
+
+    _completedIds.clear();
+    _completedIds.addAll(completed);
+
+    int nextPoseIndex = widget.session.allPoses.indexWhere(
+      (pose) => !_completedIds.contains(pose.id),
+    );
+
+    if (nextPoseIndex == -1) {
+      nextPoseIndex = 0;
+    }
+
     setState(() {
-      _poseIdx = 0;
-      _remaining = _pose.durationSeconds;
+      _poseIdx = nextPoseIndex;
+      _remaining = widget.session.allPoses[nextPoseIndex].durationSeconds;
     });
-    await _initVideo();
-    _startTimer();
+
+  } catch (e) {
+    debugPrint("❌ Failed to load saved pose progress: $e");
   }
+
+  await _initVideo();
+  _startTimer();
+}
 
   // ─────────────────────────────────────────────────────────────────────────
   // Video
@@ -623,9 +648,9 @@ ElevatedButton(
     GlobalAudioService.playClickSound();
 
     // Save pose progress before exiting
-    if (_completedIds.contains(_pose.id)) {
-      await _savePose();
-    }
+ if (_completedIds.contains(_pose.id)) {
+  await _savePose();
+}
 
     Navigator.pop(ctx);
     Navigator.pop(ctx);
