@@ -22,6 +22,37 @@ app.get('/health', (req, res) => res.json({
   status: 'ok', service: 'pose-service', timestamp: new Date().toISOString(),
 }));
 
+// ─── GET /poses/:userId/activity ─────────────────────────────────────────────
+app.get('/poses/:userId/activity', validateUserId, async (req, res, next) => {
+  const { userId } = req.params;
+
+  try {
+    const { data, error } = await supabase
+      .from('pose_activity')
+      .select('*')
+      .eq('user_id', userId)
+      .order('completed_at', { ascending: false });
+
+    if (error) throw error;
+
+    const activities = (data || []).map(row => ({
+      pose_id: row.pose_id,
+      pose_name: row.pose_name,
+      duration_seconds: row.duration_seconds,
+      session_level: row.session_level,
+      completed_at: row.completed_at
+    }));
+
+    res.json({
+      userId,
+      activities
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── GET /poses/:userId/:sessionLevel ────────────────────────────────────────
 app.get('/poses/:userId/:sessionLevel', validateUserId, validateSessionLevel, async (req, res, next) => {
   const { userId, sessionLevel } = req.params;
@@ -99,36 +130,7 @@ app.post('/poses/:userId/activity', validateUserId, validatePoseActivity, async 
 });
 
 
-// ─── GET /poses/:userId/activity ─────────────────────────────────────────────
-app.get('/poses/:userId/activity', validateUserId, async (req, res, next) => {
-  const { userId } = req.params;
 
-  try {
-    const { data, error } = await supabase
-      .from('pose_activity')
-      .select('*')
-      .eq('user_id', userId)
-      .order('completed_at', { ascending: false });
-
-    if (error) throw error;
-
-    const activities = (data || []).map(row => ({
-      pose_id: row.pose_id,
-      pose_name: row.pose_name,
-      duration_seconds: row.duration_seconds,
-      session_level: row.session_level,
-      completed_at: row.completed_at
-    }));
-
-    res.json({
-      userId,
-      activities
-    });
-
-  } catch (err) {
-    next(err);
-  }
-});
 
 // ─── GET /poses/:userId/activity/summary ─────────────────────────────────────
 app.get('/poses/:userId/activity/summary', validateUserId, async (req, res, next) => {

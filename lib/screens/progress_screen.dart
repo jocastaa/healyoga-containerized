@@ -21,7 +21,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   bool get isWeb => MediaQuery.of(context).size.width > 600;
 
-  bool _isLoading = true;
+  bool _isLoading = false;
   String? _error;
 
   // Data
@@ -45,12 +45,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 
   Future<void> _loadProgressData() async {
-    if (_isLoading) {
+    if (_isLoading) return;
     setState(() {
       _isLoading = true;
       _error = null;
     });
-    }
+    
     try {
       final userId = api.userId;
 if (userId == null) throw Exception('User not authenticated');
@@ -146,12 +146,14 @@ _reflections = List<Map<String, dynamic>>.from(
 
       if (!mounted) return;
       setState(() => _isLoading = false);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+     } catch (e, stack) {
+    print('❌ PROGRESS LOAD ERROR: $e');
+    print(stack);
+    if (!mounted) return;
+    setState(() {
+      _error = e.toString();
+      _isLoading = false;
+    });
     }
   }
 
