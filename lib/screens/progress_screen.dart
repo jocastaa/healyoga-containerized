@@ -45,22 +45,27 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 
   Future<void> _loadProgressData() async {
+    if (_isLoading) {
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
+    }
     try {
       final userId = api.userId;
 if (userId == null) throw Exception('User not authenticated');
 
       print('🔍 DEBUG: Loading progress for user: $userId');
 
-    final poseActivitiesResponse =
+final poseActivitiesResponse =
     await api.get('/poses/$userId/activity');
 
-      print('🔍 DEBUG: Found ${poseActivitiesResponse['activities'].length} pose activities');
+final activities =
+    (poseActivitiesResponse['activities'] as List?) ?? [];
+
+print('🔍 DEBUG: Found ${activities.length} pose activities');
       print('🔍 DEBUG: First few records: ${(poseActivitiesResponse['activities'] as List).take(3).toList()}');
+      print("POSE RESPONSE: $poseActivitiesResponse");
       // Used to infer sessions
       final Map<String, List<DateTime>> grouped = {};
 
@@ -77,7 +82,7 @@ if (userId == null) throw Exception('User not authenticated');
       _activityDays.clear();
       _dailyMinutes.clear(); // ADD THIS
 
-      for (var row in poseActivitiesResponse['activities'])  {
+      for (var row in activities) {
         final raw = DateTime.parse(row['completed_at']).toLocal();
         final date = DateTime(raw.year, raw.month, raw.day);
         final key = DateFormat('yyyy-MM-dd').format(date);
