@@ -618,12 +618,18 @@ await ProgressService().completeSession(uid, widget.session.levelKey[0].toUpperC
                     fontWeight: FontWeight.w600,
                     color: _kTeal)),
           ),
-          ElevatedButton(
-            onPressed: () {
-              GlobalAudioService.playClickSound();
-              Navigator.pop(ctx);
-              Navigator.pop(ctx);
-            },
+ElevatedButton(
+  onPressed: () async {
+    GlobalAudioService.playClickSound();
+
+    // Save pose progress before exiting
+    if (_completedIds.contains(_pose.id)) {
+      await _savePose();
+    }
+
+    Navigator.pop(ctx);
+    Navigator.pop(ctx);
+  },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red[400],
               elevation: 0,
