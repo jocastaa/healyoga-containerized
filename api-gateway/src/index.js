@@ -82,8 +82,7 @@ app.get('/status', async (req, res) => {
 // Uses node's native http/https — avoids http-proxy-middleware TLS issues on Render
 function manualProxy(serviceBase) {
   return (req, res) => {
-    const path = req.originalUrl.replace(/^\/(auth|progress|poses|notifications)/, '');
-    const targetUrl = new URL(path || '/', serviceBase);
+    const targetUrl = new URL(req.originalUrl, serviceBase);
     const isHttps = targetUrl.protocol === 'https:';
     const client = isHttps ? https : http;
 
